@@ -2,6 +2,8 @@ module Brokers
   class Bittrex
     class Client
       ENDPOINTS = {
+          v1: 'https://bittrex.com/api/v1/'.freeze,     # Stable version
+          v1_1: 'https://bittrex.com/api/v1.1/'.freeze  # Beta version
       }.freeze
 
       def initialize(version)
