@@ -7,6 +7,10 @@ module Brokers
     OPTIONS = {
       book: {
         type: 'both' # buy, sell or both to identify the type of orderbook to return
+      }.freeze,
+
+      trade_history: {
+        directions: { buy: 'bid'.freeze, sell: 'ask'.freeze }.freeze
       }.freeze
     }.freeze
 
@@ -49,6 +53,45 @@ module Brokers
         orders.fetch('result').fetch('sell').each do |ask|
           entity_values = prepare_book_entity(ask)
           book[:asks] << Entities::Public::Ask.new(entity_values)
+        end
+      end
+    end
+
+
+    # aw_symbol: String
+    def trade_history(aw_symbol)
+      exchange_symbol = convert_to_bittrex_symbol(aw_symbol)
+      endpoint = 'public/getmarkethistory'
+      options = OPTIONS.fetch(:trade_history)
+      params = {
+        market: exchange_symbol
+      }
+
+      trades = Client.v1_1.request(:get, endpoint, params: params)
+
+      {}.tap do |history|
+        history[:symbol] = aw_symbol
+        history[:exchange] = exchange_name
+        history[:history] = []
+
+        trades.fetch('result').each do |trade|
+          trade_id  = trade.fetch('Id')
+          price     = to_currency(trade.fetch('Price'))
+          amount    = to_currency(trade.fetch('Total'))
+          quantity  = to_currency(trade.fetch('Quantity'))
+          direction = options.fetch(:directions).fetch(trade.fetch('OrderType').downcase.to_sym)
+          timestamp = Time.parse(trade.fetch('TimeStamp'))
+
+          trade = Entities::Public::Trade.new(
+            qty: quantity,
+            price: price,
+            value: amount,
+            trade_no: trade_id.to_s,
+            timestamp: timestamp,
+            direction: direction
+          )
+
+          history[:history] << trade
         end
       end
     end
