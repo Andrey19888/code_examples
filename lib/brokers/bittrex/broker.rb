@@ -96,6 +96,13 @@ module Brokers
       end
     end
 
+    # account: Hash (:key, :secret)
+    def balance(account)
+      endpoint = 'account/getbalances'
+      data = AuthorizedClient.v1_1.auth(account).request(endpoint)
+
+    end
+
     private
 
     def exchange_name
