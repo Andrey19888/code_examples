@@ -225,6 +225,36 @@ module Brokers
       end
     end
 
+    # account: Hash (:key, :secret)
+    # params: Hash (:oid)
+    def cancel(account, params)
+      endpoint = 'market/cancel'
+      uuid = params.fetch(:oid)
+
+      exchange_account = build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key))
+      order_operation = Entities::Account::OrderOperation.new(exchange_account)
+
+      begin
+        result = AuthorizedClient.v1_1.auth(account).request(endpoint, { uuid: uuid })
+        if result.fetch('success')
+          order_operation.oid = uuid.to_s
+          order_operation.status = STATUS_OK
+        else
+          error = Entities::Error.new(
+            message: result.fetch('message')
+          )
+          order_operation.error = error
+          order_operation.status = STATUS_ERROR
+        end
+      rescue BaseBroker::Errors::AlgowaveError => exception
+        error = Entities::Error.for(exception)
+        order_operation.error = error
+        order_operation.status = STATUS_ERROR
+      end
+
+      order_operation
+    end
+
     private
 
     def exchange_name
