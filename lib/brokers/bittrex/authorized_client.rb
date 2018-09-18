@@ -21,7 +21,7 @@ module Brokers
           nonce: current_nonce
         )
 
-        params_for_sign = "#{@base_endpoint}#{method_endpoint.to_s}?#{Addressable::URI.form_encode(params, true )}"
+        params_for_sign = "#{@base_endpoint}#{method_endpoint.to_s}?#{Addressable::URI.form_encode(params)}"
 
         request_options = {
           params: params,

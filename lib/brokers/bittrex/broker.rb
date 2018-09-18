@@ -205,6 +205,26 @@ module Brokers
       build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(trades: trades)
     end
 
+    # account: Hash (:key, :secret)
+    # params: Hash (:oid)
+    def order_info(account, params)
+      endpoint = 'account/getorder'
+      uuid = params.fetch(:oid)
+
+      data = AuthorizedClient.v1_1.auth(account).request(endpoint, { uuid: uuid })
+      info = data.fetch('result')
+
+      order_header = build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(oid: uuid)
+
+      Entities::Account::OrderInfo.new(order_header).tap do |entity|
+        entity.qty          = to_currency(info.fetch('Quantity'))
+        entity.price        = to_currency(info.fetch('Limit'))
+        entity.filled_qty   = to_currency(info.fetch('QuantityRemaining'))
+        entity.filled_price = to_currency(info.fetch('Limit'))
+        entity.active       = info.fetch('IsOpen')
+      end
+    end
+
     private
 
     def exchange_name
