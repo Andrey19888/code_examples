@@ -16,6 +16,11 @@ module Brokers
       open_orders: {
         kind: 'order'.freeze,
         order_type: { limit_buy: 'buy'.freeze, limit_sell: 'sell'.freeze }.freeze
+      }.freeze,
+
+      trades: {
+        kind: 'trade'.freeze,
+        trade_type: { limit_buy: 'buy'.freeze, limit_sell: 'sell'.freeze }.freeze
       }.freeze
     }.freeze
 
@@ -158,6 +163,46 @@ module Brokers
       end
 
       build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(orders: orders)
+    end
+
+
+    # account: Hash (:key, :secret)
+    # params: Hash
+    #   * :pair - optional, an array can be passed
+    def trades(account, params = {})
+      endpoint = 'account/getorderhistory'
+      options = OPTIONS.fetch(:trades)
+      kind = options.fetch(:kind)
+
+      begin
+        data = AuthorizedClient.v1_1.auth(account).request(endpoint)
+
+        trades = data.fetch('result').map do |trade|
+          exchange_symbol = trade.fetch('Exchange')
+          aw_symbol = convert_to_aw_symbol(exchange_symbol)
+
+          Entities::Account::Trade.new(
+            symbol:    aw_symbol,
+            kind:      kind,
+            oid:       trade.fetch('OrderUuid').to_s,
+            timestamp: Time.parse(trade.fetch('TimeStamp')),
+            op:        options.fetch(:trade_type).fetch(trade.fetch('OrderType').downcase.to_sym),
+            qty:       to_currency(trade.fetch('Quantity')),
+            price:     to_currency(trade.fetch('Limit'))
+          )
+        end
+
+      # TODO: log error into Redis
+      rescue BaseBroker::Errors::AlgowaveError => exception
+        STDERR.puts "[#{exchange_name}] #{exception.message}"
+      end
+
+      if params.key?(:pair)
+        aw_symbols = Array(params[:pair]).to_set
+        trades.keep_if { |trade| aw_symbols.include?(trade.symbol) }
+      end
+
+      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(trades: trades)
     end
 
     private
