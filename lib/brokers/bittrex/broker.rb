@@ -11,6 +11,11 @@ module Brokers
 
       trade_history: {
         directions: { buy: 'bid'.freeze, sell: 'ask'.freeze }.freeze
+      }.freeze,
+
+      open_orders: {
+        kind: 'order'.freeze,
+        order_type: { limit_buy: 'buy'.freeze, limit_sell: 'sell'.freeze }.freeze
       }.freeze
     }.freeze
 
@@ -101,6 +106,58 @@ module Brokers
       endpoint = 'account/getbalances'
       data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
+      balance = data.fetch('result').map do |coin_balance|
+        coin = coin_balance.fetch('Currency').upcase
+
+        entity           = Entities::Account::Balance.new(coin: coin)
+        entity.available = to_currency(coin_balance.fetch('Available'))
+        entity.on_orders = to_currency(coin_balance.fetch('Pending'))
+        entity.total     = to_currency(coin_balance.fetch('Balance'))
+        entity.qty       = to_currency(coin_balance.fetch('Balance'))
+
+        [coin, entity]
+      end.to_h
+
+      calculate_usd_btc_values!(balance)
+
+      {
+          account: build_account(account.fetch(:key)),
+          exchange: exchange_name,
+          balance: balance
+      }
+
+    end
+
+    # account: Hash (:key, :secret)
+    # params: Hash
+    #   * :pair - optional, an array can be passed
+    def open_orders(account, params = {})
+      endpoint = 'market/getopenorders'
+      data = AuthorizedClient.v1_1.auth(account).request(endpoint)
+      options = OPTIONS.fetch(:open_orders)
+      kind = options.fetch(:kind)
+
+      orders = data.fetch('result').map do |order|
+        exchange_symbol = order.fetch('Exchange')
+        aw_symbol = convert_to_aw_symbol(exchange_symbol)
+
+        Entities::Account::OpenOrder.new(
+          symbol:    aw_symbol,
+          kind:      kind,
+          oid:       order.fetch('OrderUuid').to_s,
+          timestamp: Time.parse(order.fetch('Opened')),
+          op:        options.fetch(:order_type).fetch(order.fetch('OrderType').downcase.to_sym),
+          qty:       to_currency(order.fetch('QuantityRemaining')),
+          price:     to_currency(order.fetch('Limit'))
+        )
+      end
+
+      if params.key?(:pair)
+        aw_symbols = Array(params[:pair]).to_set
+        orders.keep_if { |order| aw_symbols.include?(order.symbol) }
+      end
+
+      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(orders: orders)
     end
 
     private
@@ -127,6 +184,15 @@ module Brokers
     def convert_to_bittrex_symbol(aw_symbol)
       pair = parse_aw_symbol(aw_symbol)
       "#{pair.fetch(:base_coin)}-#{pair.fetch(:quote_coin)}".upcase
+    end
+
+    def convert_to_aw_symbol(bittrex_symbol)
+      info = parse_bittrex_symbol(bittrex_symbol)
+
+      build_aw_symbol(
+        base_coin: info.fetch(:base_coin),
+        quote_coin: info.fetch(:quote_coin)
+      )
     end
 
     def prepare_book_entity(order)

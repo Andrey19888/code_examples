@@ -26,7 +26,7 @@ module Brokers
         request_options = {
           params: params,
           headers: {
-              sign: signature(params_for_sign, secret: @secret)
+            apisign: signature(params_for_sign, secret: @secret)
           }
         }
 
