@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors  = ['Andrey Eysmont']
   spec.email    = ['andrey.eysmont@azati.com']
 
-  spec.summary  = 'AlgoWave broker to communicate with Liqui cryptocurrency exchange'
+  spec.summary  = 'AlgoWave broker to communicate with Bittrex cryptocurrency exchange'
   spec.homepage = 'https://bitbucket.org/algowave/exchanges'
   spec.license  = 'Nonstandard'
 
