@@ -165,7 +165,6 @@ module Brokers
       build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(orders: orders)
     end
 
-
     # account: Hash (:key, :secret)
     # params: Hash
     #   * :pair - optional, an array can be passed
