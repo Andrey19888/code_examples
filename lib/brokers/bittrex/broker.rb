@@ -218,7 +218,7 @@ module Brokers
       Entities::Account::OrderInfo.new(order_header).tap do |entity|
         entity.qty          = to_currency(info.fetch('Quantity'))
         entity.price        = to_currency(info.fetch('Limit'))
-        entity.filled_qty   = to_currency(info.fetch('QuantityRemaining'))
+        entity.filled_qty   = entity.qty - to_currency(info.fetch('QuantityRemaining'))
         entity.filled_price = to_currency(info.fetch('Limit'))
         entity.active       = info.fetch('IsOpen')
       end
