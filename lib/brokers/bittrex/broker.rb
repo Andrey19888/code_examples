@@ -323,6 +323,8 @@ module Brokers
         exchange_symbol = ticker.fetch('MarketName')
         exchange_symbol_info = parse_bittrex_symbol(exchange_symbol)
         aw_symbol = build_aw_symbol(exchange_symbol_info.slice(:base_coin, :quote_coin))
+        open = to_currency(ticker.fetch('PrevDay'))
+        close = to_currency(ticker.fetch('Last'))
 
         pair = Entities::Public::Pair.new(
           symbol:     aw_symbol,
@@ -335,10 +337,12 @@ module Brokers
           volume: to_currency(ticker.fetch('Volume')),
           high:   to_currency(ticker.fetch('High')),
           low:    to_currency(ticker.fetch('Low')),
-          last:   to_currency(ticker.fetch('Last')),
+          last:   close,
           bid:    to_currency(ticker.fetch('Bid')),
           ask:    to_currency(ticker.fetch('Ask')),
+          open:   open,
 
+          change_percent: calc_change_percent(open: open, close: close),
           actualized_at: fetched_at
         )
 
