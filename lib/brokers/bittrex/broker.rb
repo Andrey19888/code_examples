@@ -24,6 +24,8 @@ module Brokers
       }.freeze
     }.freeze
 
+    enable_logging!
+
     # Defined in parent class:
     #
     #  def pairs
