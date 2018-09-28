@@ -334,7 +334,6 @@ module Brokers
           ex_id:      exchange_symbol,
           quote_coin: exchange_symbol_info.fetch(:quote_coin),
           base_coin:  exchange_symbol_info.fetch(:base_coin),
-          usd_symbol: build_usd_symbol(exchange_symbol_info.fetch(:base_coin)),
 
           volume: to_currency(ticker.fetch('Volume')),
           high:   to_currency(ticker.fetch('High')),
