@@ -5,7 +5,7 @@ module Auth
     attr_reader :token
     attr_reader :expires_at
 
-    def generate(data, expires_at: Time.current + TOKEN_LIFETIME)
+    def generate(data:, expires_at: Time.current + TOKEN_LIFETIME)
       payload = {
         data: data,
         exp: expires_at.to_i
