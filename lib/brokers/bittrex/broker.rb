@@ -327,6 +327,7 @@ module Brokers
         aw_symbol = build_aw_symbol(exchange_symbol_info.slice(:base_coin, :quote_coin))
         open = to_currency(ticker.fetch('PrevDay'))
         close = to_currency(ticker.fetch('Last'))
+        volume = to_currency(ticker.fetch('Volume'))
 
         pair = Entities::Public::Pair.new(
           symbol:     aw_symbol,
@@ -336,13 +337,14 @@ module Brokers
           base_coin:  exchange_symbol_info.fetch(:base_coin),
           usd_symbol: build_usd_symbol(exchange_symbol_info.fetch(:base_coin)),
 
-          volume: to_currency(ticker.fetch('Volume')),
-          high:   to_currency(ticker.fetch('High')),
-          low:    to_currency(ticker.fetch('Low')),
-          last:   close,
-          bid:    to_currency(ticker.fetch('Bid')),
-          ask:    to_currency(ticker.fetch('Ask')),
-          open:   open,
+          volume:  volume,
+          high:    to_currency(ticker.fetch('High')),
+          low:     to_currency(ticker.fetch('Low')),
+          last:    close,
+          bid:     to_currency(ticker.fetch('Bid')),
+          ask:     to_currency(ticker.fetch('Ask')),
+          open:    open,
+          enabled: volume > 0,
 
           change_percent: calc_change_percent(open: open, close: close),
           actualized_at: fetched_at
