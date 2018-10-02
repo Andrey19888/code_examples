@@ -14,7 +14,7 @@ module Exchanges
     end
 
     def perform
-      broker = Brokers::Factory.build(@exchange.name)
+      broker = BrokersInstances.for(@exchange.name)
       raw_pairs = broker.pairs.values
 
       attributes = build_attributes(raw_pairs)
