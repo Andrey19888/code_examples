@@ -3,7 +3,7 @@ module Brokers
     class AuthorizedClient < Client
       ApiTokensNotSpecified = Class.new(StandardError)
 
-      def auth(key:, secret:)
+      def auth(key:, secret:, **args)
         @key = key&.to_s
         @secret = secret&.to_s
 
