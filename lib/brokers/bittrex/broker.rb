@@ -2,8 +2,6 @@ module Brokers
   class Bittrex < BaseBroker
     include CommonHelpers
 
-    EXCHANGE_NAME = 'Bittrex'.freeze
-
     OPTIONS = {
       book: {
         type: 'both' # buy, sell or both to identify the type of orderbook to return
@@ -271,10 +269,6 @@ module Brokers
     end
 
     private
-
-    def exchange_name
-      EXCHANGE_NAME
-    end
 
     def parse_bittrex_symbol(symbol)
       data = {}
