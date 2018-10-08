@@ -317,7 +317,6 @@ module Brokers
     def fetch_pairs
       endpoint = 'public/getmarketsummaries'
       tickers = Client.v1_1.request(:get, endpoint)
-      bittrex_fees = fees
 
       fetched_at = Time.now.utc
 
@@ -343,7 +342,7 @@ module Brokers
           bid:     to_currency(ticker.fetch('Bid')),
           ask:     to_currency(ticker.fetch('Ask')),
           open:    open,
-          fees:    bittrex_fees,
+          fees:    fees,
           enabled: volume > 0,
 
           change_percent: calc_change_percent(open: open, close: close),
