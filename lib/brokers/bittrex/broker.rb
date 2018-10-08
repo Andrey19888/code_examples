@@ -2,6 +2,11 @@ module Brokers
   class Bittrex < BaseBroker
     include CommonHelpers
 
+    config.pairs.fees.maker_buy_max = 0.25
+    config.pairs.fees.maker_sell_max = 0.25
+    config.pairs.fees.taker_buy_max = 0.25
+    config.pairs.fees.taker_sell_max = 0.25
+
     OPTIONS = {
       book: {
         type: 'both' # buy, sell or both to identify the type of orderbook to return
@@ -312,6 +317,7 @@ module Brokers
     def fetch_pairs
       endpoint = 'public/getmarketsummaries'
       tickers = Client.v1_1.request(:get, endpoint)
+      bittrex_fees = fees
 
       fetched_at = Time.now.utc
 
@@ -337,6 +343,7 @@ module Brokers
           bid:     to_currency(ticker.fetch('Bid')),
           ask:     to_currency(ticker.fetch('Ask')),
           open:    open,
+          fees:    bittrex_fees,
           enabled: volume > 0,
 
           change_percent: calc_change_percent(open: open, close: close),
