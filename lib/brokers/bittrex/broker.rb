@@ -2,7 +2,10 @@ module Brokers
   class Bittrex < BaseBroker
     include CommonHelpers
 
-    EXCHANGE_NAME = 'Bittrex'.freeze
+    config.pairs.fees.maker_buy_max = 0.25
+    config.pairs.fees.maker_sell_max = 0.25
+    config.pairs.fees.taker_buy_max = 0.25
+    config.pairs.fees.taker_sell_max = 0.25
 
     OPTIONS = {
       book: {
@@ -272,10 +275,6 @@ module Brokers
 
     private
 
-    def exchange_name
-      EXCHANGE_NAME
-    end
-
     def parse_bittrex_symbol(symbol)
       data = {}
 
@@ -343,6 +342,7 @@ module Brokers
           bid:     to_currency(ticker.fetch('Bid')),
           ask:     to_currency(ticker.fetch('Ask')),
           open:    open,
+          fees:    fees,
           enabled: volume > 0,
 
           change_percent: calc_change_percent(open: open, close: close),
