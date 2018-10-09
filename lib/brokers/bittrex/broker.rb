@@ -314,10 +314,33 @@ module Brokers
       }
     end
 
+    def precision(tickers)
+      precisions = []
+
+      tickers.each do |ticker|
+        precisions << ticker.fetch('High').to_s.split('.').last.length
+        precisions << ticker.fetch('Low').to_s.split('.').last.length
+        precisions << ticker.fetch('Last').to_s.split('.').last.length
+        precisions << ticker.fetch('Volume').to_s.split('.').last.length
+        precisions << ticker.fetch('BaseVolume').to_s.split('.').last.length
+        precisions << ticker.fetch('Bid').to_s.split('.').last.length
+        precisions << ticker.fetch('Ask').to_s.split('.').last.length
+        precisions << ticker.fetch('PrevDay').to_s.split('.').last.length
+      end
+
+      precision = precisions.max
+
+      Entities::Public::Precision.new(
+          amount: precision,
+          price: precision
+      )
+    end
+
     def fetch_pairs
       endpoint = 'public/getmarketsummaries'
       tickers = Client.v1_1.request(:get, endpoint)
 
+      precision = precision(tickers.fetch('result'))
       fetched_at = Time.now.utc
 
       tickers.fetch('result').each.with_object({}) do |ticker, pairs|
@@ -335,15 +358,16 @@ module Brokers
           quote_coin: exchange_symbol_info.fetch(:quote_coin),
           base_coin:  exchange_symbol_info.fetch(:base_coin),
 
-          volume:  volume,
-          high:    to_currency(ticker.fetch('High')),
-          low:     to_currency(ticker.fetch('Low')),
-          last:    close,
-          bid:     to_currency(ticker.fetch('Bid')),
-          ask:     to_currency(ticker.fetch('Ask')),
-          open:    open,
-          fees:    fees,
-          enabled: volume > 0,
+          volume:    volume,
+          high:      to_currency(ticker.fetch('High')),
+          low:       to_currency(ticker.fetch('Low')),
+          last:      close,
+          bid:       to_currency(ticker.fetch('Bid')),
+          ask:       to_currency(ticker.fetch('Ask')),
+          open:      open,
+          fees:      fees,
+          enabled:   volume > 0,
+          precision: precision,
 
           change_percent: calc_change_percent(open: open, close: close),
           actualized_at: fetched_at
