@@ -131,9 +131,9 @@ module Brokers
       calculate_usd_btc_values!(balance)
 
       {
-          account: build_account(account.fetch(:key)),
-          exchange: exchange_name,
-          balance: balance
+        account: build_account(account.fetch(:key)),
+        exchange: exchange_name,
+        balance: balance
       }
 
     end
@@ -314,36 +314,12 @@ module Brokers
       }
     end
 
-    def precision(tickers)
-      precisions = []
-
-      tickers.each do |ticker|
-        precisions << ticker.fetch('High').to_s.split('.').last.length
-        precisions << ticker.fetch('Low').to_s.split('.').last.length
-        precisions << ticker.fetch('Last').to_s.split('.').last.length
-        precisions << ticker.fetch('Volume').to_s.split('.').last.length
-        precisions << ticker.fetch('BaseVolume').to_s.split('.').last.length
-        precisions << ticker.fetch('Bid').to_s.split('.').last.length
-        precisions << ticker.fetch('Ask').to_s.split('.').last.length
-        precisions << ticker.fetch('PrevDay').to_s.split('.').last.length
-      end
-
-      precision = precisions.max
-
-      Entities::Public::Precision.new(
-          amount: precision,
-          price: precision
-      )
-    end
-
     def fetch_pairs
       endpoint = 'public/getmarketsummaries'
-      tickers = Client.v1_1.request(:get, endpoint)
-
-      precision = precision(tickers.fetch('result'))
+      tickers = Client.v1_1.request(:get, endpoint).fetch('result')
       fetched_at = Time.now.utc
 
-      tickers.fetch('result').each.with_object({}) do |ticker, pairs|
+      pairs = tickers.each.with_object({}) do |ticker, pairs|
         exchange_symbol = ticker.fetch('MarketName')
         exchange_symbol_info = parse_bittrex_symbol(exchange_symbol)
         aw_symbol = build_aw_symbol(exchange_symbol_info.slice(:base_coin, :quote_coin))
@@ -367,7 +343,6 @@ module Brokers
           open:      open,
           fees:      fees,
           enabled:   volume > 0,
-          precision: precision,
 
           change_percent: calc_change_percent(open: open, close: close),
           actualized_at: fetched_at
@@ -375,6 +350,10 @@ module Brokers
 
         pairs[aw_symbol] = pair
       end
+
+      precision = max_precision_of(pairs)
+      pairs.values.map { |pair| pair.precision = precision }
+      pairs
     end
 
     def create_order(account:, endpoint:, pair:, limit:, qty:)
