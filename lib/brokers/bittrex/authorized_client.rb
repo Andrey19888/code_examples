@@ -15,7 +15,7 @@ module Brokers
           raise ApiTokensNotSpecified, 'use method #auth to specify :key and :secret to send authorized requests'
         end
 
-        params = BaseBroker::CommonHelpers.symbolize_keys(options)
+        params = Helpers.symbolize_keys(options)
         params.merge!(
           apikey: @key,
           nonce: current_nonce

@@ -1,6 +1,5 @@
 module Brokers
   class Bittrex < BaseBroker
-    include CommonHelpers
 
     config.pairs.fees.maker_buy_max = 0.25
     config.pairs.fees.maker_sell_max = 0.25
