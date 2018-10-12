@@ -44,7 +44,7 @@ module Brokers
 
     # aw_symbol: String
     def book(aw_symbol)
-      exchange_symbol = convert_to_bittrex_symbol(aw_symbol)
+      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
       endpoint = "public/getorderbook"
       params = {
         type: OPTIONS.fetch(:book).fetch(:type),
@@ -74,7 +74,7 @@ module Brokers
 
     # aw_symbol: String
     def trade_history(aw_symbol)
-      exchange_symbol = convert_to_bittrex_symbol(aw_symbol)
+      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
       endpoint = 'public/getmarkethistory'
       options = OPTIONS.fetch(:trade_history)
       params = {
@@ -274,28 +274,23 @@ module Brokers
 
     private
 
-    def parse_bittrex_symbol(symbol)
-      data = {}
+    def parse_exchange_symbol(symbol)
+      base_coin, quote_coin = symbol.to_s.split('-')
 
-      # regular pair (e.g. vee_btc)
-      if symbol && symbol.split('-').count == 2
-        coins = symbol.upcase.split('-')
-        data[:base_coin]  = coins[0]
-        data[:quote_coin] = coins[1]
+      if base_coin && quote_coin
+        { base_coin: base_coin, quote_coin: quote_coin }
       else
         raise Errors::AlgowaveError, "couldn't parse symbol #{symbol.inspect}"
       end
-
-      data
     end
 
-    def convert_to_bittrex_symbol(aw_symbol)
+    def convert_to_exchange_symbol(aw_symbol)
       pair = parse_aw_symbol(aw_symbol)
       "#{pair.fetch(:base_coin)}-#{pair.fetch(:quote_coin)}".upcase
     end
 
-    def convert_to_aw_symbol(bittrex_symbol)
-      info = parse_bittrex_symbol(bittrex_symbol)
+    def convert_to_aw_symbol(exchange_symbol)
+      info = parse_exchange_symbol(exchange_symbol)
 
       build_aw_symbol(
         base_coin: info.fetch(:base_coin),
@@ -320,7 +315,7 @@ module Brokers
 
       pairs = tickers.each.with_object({}) do |ticker, pairs|
         exchange_symbol = ticker.fetch('MarketName')
-        exchange_symbol_info = parse_bittrex_symbol(exchange_symbol)
+        exchange_symbol_info = parse_exchange_symbol(exchange_symbol)
         aw_symbol = build_aw_symbol(exchange_symbol_info.slice(:base_coin, :quote_coin))
         open = to_currency(ticker.fetch('PrevDay'))
         close = to_currency(ticker.fetch('Last'))
@@ -360,7 +355,7 @@ module Brokers
       rate = BigDecimal(limit.to_s).to_s('F')
 
       params = {
-        market: convert_to_bittrex_symbol(pair),
+        market: convert_to_exchange_symbol(pair),
         rate: rate,
         quantity: quantity
       }
