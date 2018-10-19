@@ -6,6 +6,10 @@ module Brokers
     config.pairs.fees.taker_buy_max = 0.25
     config.pairs.fees.taker_sell_max = 0.25
 
+    config.book.cache_period = 10
+    config.pairs.cache_period = 15
+    config.trade_history.cache_period = 10
+
     OPTIONS = {
       book: {
         type: 'both' # buy, sell or both to identify the type of orderbook to return
@@ -41,74 +45,6 @@ module Brokers
     #
     #  def account_info(account, trades_params = {})
     #  end
-
-    # aw_symbol: String
-    def book(aw_symbol)
-      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
-      endpoint = "public/getorderbook"
-      params = {
-        type: OPTIONS.fetch(:book).fetch(:type),
-        market: exchange_symbol
-      }
-
-      orders = Client.v1_1.request(:get, endpoint, params: params)
-
-      {}.tap do |book|
-        book[:symbol] = aw_symbol
-        book[:exchange] = exchange_name
-        book[:bids] = []
-        book[:asks] = []
-
-        orders.fetch('result').fetch('buy').each do |bid|
-          entity_values = prepare_book_entity(bid)
-          book[:bids] << Entities::Public::Bid.new(entity_values)
-        end
-
-        orders.fetch('result').fetch('sell').each do |ask|
-          entity_values = prepare_book_entity(ask)
-          book[:asks] << Entities::Public::Ask.new(entity_values)
-        end
-      end
-    end
-
-
-    # aw_symbol: String
-    def trade_history(aw_symbol)
-      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
-      endpoint = 'public/getmarkethistory'
-      options = OPTIONS.fetch(:trade_history)
-      params = {
-        market: exchange_symbol
-      }
-
-      trades = Client.v1_1.request(:get, endpoint, params: params)
-
-      {}.tap do |history|
-        history[:symbol] = aw_symbol
-        history[:exchange] = exchange_name
-        history[:history] = []
-
-        trades.fetch('result').each do |trade|
-          trade_id  = trade.fetch('Id')
-          price     = to_currency(trade.fetch('Price'))
-          amount    = to_currency(trade.fetch('Total'))
-          quantity  = to_currency(trade.fetch('Quantity'))
-          direction = options.fetch(:directions).fetch(trade.fetch('OrderType').downcase.to_sym)
-          timestamp = Time.parse(trade.fetch('TimeStamp'))
-
-          trade = Entities::Public::Trade.new(
-            qty: quantity,
-            price: price,
-            value: amount,
-            trade_no: trade_id.to_s,
-            timestamp: timestamp,
-            direction: direction
-          )
-
-          history[:history] << trade
-        end
-      end
-    end
 
     # account: Hash (:key, :secret)
     def balance(account)
@@ -306,6 +242,74 @@ module Brokers
         qty: qty,
         value: price * qty
       }
+    end
+
+
+    # aw_symbol: String
+    def fetch_book(aw_symbol)
+      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
+      endpoint = "public/getorderbook"
+      params = {
+          type: OPTIONS.fetch(:book).fetch(:type),
+          market: exchange_symbol
+      }
+
+      orders = Client.v1_1.request(:get, endpoint, params: params)
+
+      {}.tap do |book|
+        book[:symbol] = aw_symbol
+        book[:exchange] = exchange_name
+        book[:bids] = []
+        book[:asks] = []
+
+        orders.fetch('result').fetch('buy').each do |bid|
+          entity_values = prepare_book_entity(bid)
+          book[:bids] << Entities::Public::Bid.new(entity_values)
+        end
+
+        orders.fetch('result').fetch('sell').each do |ask|
+          entity_values = prepare_book_entity(ask)
+          book[:asks] << Entities::Public::Ask.new(entity_values)
+        end
+      end
+    end
+
+    # aw_symbol: String
+    def fetch_trade_history(aw_symbol)
+      exchange_symbol = convert_to_exchange_symbol(aw_symbol)
+      endpoint = 'public/getmarkethistory'
+      options = OPTIONS.fetch(:trade_history)
+      params = {
+          market: exchange_symbol
+      }
+
+      trades = Client.v1_1.request(:get, endpoint, params: params)
+
+      {}.tap do |history|
+        history[:symbol] = aw_symbol
+        history[:exchange] = exchange_name
+        history[:history] = []
+
+        trades.fetch('result').each do |trade|
+          trade_id  = trade.fetch('Id')
+          price     = to_currency(trade.fetch('Price'))
+          amount    = to_currency(trade.fetch('Total'))
+          quantity  = to_currency(trade.fetch('Quantity'))
+          direction = options.fetch(:directions).fetch(trade.fetch('OrderType').downcase.to_sym)
+          timestamp = Time.parse(trade.fetch('TimeStamp'))
+
+          trade = Entities::Public::Trade.new(
+              qty: quantity,
+              price: price,
+              value: amount,
+              trade_no: trade_id.to_s,
+              timestamp: timestamp,
+              direction: direction
+          )
+
+          history[:history] << trade
+        end
+      end
     end
 
     def fetch_pairs
