@@ -1,7 +1,7 @@
 module Exchanges
   class PairsSynchronizer
-    CONFLICT_KEY_COLUMNS  = %i[exchange_id symbol]
-    CONFLICT_SKIP_COLUMNS = CONFLICT_KEY_COLUMNS + %i[quote_coin base_coin created_at]
+    CONFLICT_KEY_COLUMNS  = %i[exchange_id symbol].freeze
+    CONFLICT_SKIP_COLUMNS = (CONFLICT_KEY_COLUMNS + %i[quote_coin base_coin created_at]).freeze
 
     class InvalidPair < StandardError
       def initialize(params:, errors:)
