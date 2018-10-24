@@ -23,7 +23,7 @@ module Orders
       open_orders_data = fetch_open_orders(params)
 
       entities = open_orders_data.fetch(:orders)
-      attributes = build_attributes(entities)
+      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
 
       # TODO: We also need to check "status" of #open_orders method completion
       #       If error occurred then we maybe should return all open orders from database, not only synced records...
@@ -70,19 +70,20 @@ module Orders
       broker.open_orders(account.credentials_hash, params)
     end
 
-    def build_attributes(entities)
-      pair_id_symbol_map = build_symbol_pair_id_map(exchange: @account.exchange, entities: entities)
+    def build_attributes(exchange:, account:, entities:)
+      symbols = entities.map(&:symbol)
+      symbol_pair_id_map = build_symbol_pair_id_map(exchange: exchange, symbols: symbols)
       current_timestamp = Time.current
 
       entities.map do |entity|
-        pair_id = pair_id_symbol_map[entity.symbol]
+        pair_id = symbol_pair_id_map[entity.symbol]
         next unless pair_id
 
         params = entity.to_h.merge(
           status: MODEL::Statuses::OPEN,
-          account_id: @account.id,
-          user_id: @account.user_id,
-          exchange_id: @account.exchange_id,
+          account_id: account.id,
+          user_id: account.user_id,
+          exchange_id: account.exchange_id,
           pair_id: pair_id,
           created_at: current_timestamp,
           updated_at: current_timestamp
@@ -99,13 +100,11 @@ module Orders
       end.compact
     end
 
-    def build_symbol_pair_id_map(exchange:, entities:)
-      symbols = entities.map(&:symbol).uniq
-      exchange.pairs.where(symbol: symbols).pluck(:symbol, :id).to_h
+    def build_symbol_pair_id_map(exchange:, symbols: [])
+      exchange.pairs.where(symbol: symbols.uniq).pluck(:symbol, :id).to_h
     end
 
-    def save(attributes)
-
+    def save(attributes = [])
       DB[:orders].insert_conflict(
         target: CONFLICT_KEY_COLUMNS,
         update: {
