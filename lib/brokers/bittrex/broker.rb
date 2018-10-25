@@ -78,23 +78,38 @@ module Brokers
     #   * :pair - optional, an array can be passed
     def open_orders(account, params = {})
       endpoint = 'market/getopenorders'
-      data = AuthorizedClient.v1_1.auth(account).request(endpoint)
       options = OPTIONS.fetch(:open_orders)
       kind = options.fetch(:kind)
+      operation_status = {}
 
-      orders = data.fetch('result').map do |order|
-        exchange_symbol = order.fetch('Exchange')
-        aw_symbol = convert_to_aw_symbol(exchange_symbol)
+      begin
+        data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
-        Entities::Account::OpenOrder.new(
-          symbol:    aw_symbol,
-          kind:      kind,
-          oid:       order.fetch('OrderUuid').to_s,
-          timestamp: Time.parse(order.fetch('Opened')),
-          op:        options.fetch(:order_type).fetch(order.fetch('OrderType').downcase.to_sym),
-          qty:       to_currency(order.fetch('QuantityRemaining')),
-          price:     to_currency(order.fetch('Limit'))
-        )
+        orders = data.fetch('result').map do |order|
+          exchange_symbol = order.fetch('Exchange')
+          aw_symbol = convert_to_aw_symbol(exchange_symbol)
+          quantity  = to_currency(order.fetch('Quantity'))
+          quantity_remaining  = to_currency(order.fetch('QuantityRemaining'))
+
+          Entities::Account::OpenOrder.new(
+            symbol:     aw_symbol,
+            kind:       kind,
+            oid:        order.fetch('OrderUuid').to_s,
+            timestamp:  Time.parse(order.fetch('Opened')),
+            op:         options.fetch(:order_type).fetch(order.fetch('OrderType').downcase.to_sym),
+            qty:        quantity,
+            filled_qty: quantity - quantity_remaining,
+            price:      to_currency(order.fetch('Limit'))
+          )
+        end
+
+        operation_status[:status] = STATUS_OK
+
+          # TODO: log error into Redis
+      rescue BaseBroker::Errors::AlgowaveError => exception
+        STDERR.puts "[#{exchange_name}] #{exception.message}"
+        operation_status[:error] = Entities::Error.for(exception)
+        operation_status[:status] = STATUS_ERROR
       end
 
       if params.key?(:pair)
@@ -102,7 +117,7 @@ module Brokers
         orders.keep_if { |order| aw_symbols.include?(order.symbol) }
       end
 
-      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(orders: orders)
+      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(orders: orders).merge(operation_status)
     end
 
     # account: Hash (:key, :secret)
@@ -112,6 +127,7 @@ module Brokers
       endpoint = 'account/getorderhistory'
       options = OPTIONS.fetch(:trades)
       kind = options.fetch(:kind)
+      operation_status = {}
 
       begin
         data = AuthorizedClient.v1_1.auth(account).request(endpoint)
@@ -131,9 +147,13 @@ module Brokers
           )
         end
 
+        operation_status[:status] = STATUS_OK
+
       # TODO: log error into Redis
       rescue BaseBroker::Errors::AlgowaveError => exception
         STDERR.puts "[#{exchange_name}] #{exception.message}"
+        operation_status[:error] = Entities::Error.for(exception)
+        operation_status[:status] = STATUS_ERROR
       end
 
       if params.key?(:pair)
@@ -141,7 +161,7 @@ module Brokers
         trades.keep_if { |trade| aw_symbols.include?(trade.symbol) }
       end
 
-      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(trades: trades)
+      build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(trades: trades).merge(operation_status)
     end
 
     # account: Hash (:key, :secret)
