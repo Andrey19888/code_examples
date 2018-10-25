@@ -57,7 +57,6 @@ module Brokers
         entity           = Entities::Account::Balance.new(coin: coin)
         entity.available = to_currency(coin_balance.fetch('Available'))
         entity.total     = to_currency(coin_balance.fetch('Balance'))
-        entity.qty       = to_currency(coin_balance.fetch('Balance'))
         entity.on_orders = entity.total - entity.available
 
         [coin, entity]
