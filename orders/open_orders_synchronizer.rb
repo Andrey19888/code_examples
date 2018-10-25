@@ -1,3 +1,11 @@
+# This class performs synchronization of account's open orders into local database.
+# Then returns array of orders' attributes from local database (synced data).
+#
+# If an error occurred during synchronization then all orders from local database will be returned.
+#
+# If all was ok then ONLY recently synchronized orders will be returned.
+# (all other orders with status "open/partial" are considered as "completed/closed" and we need to check their status in background)
+
 module Orders
   class OpenOrdersSynchronizer
     CONFLICT_KEY_COLUMNS    = %i[exchange_id oid].freeze
@@ -22,25 +30,25 @@ module Orders
 
       base_dataset = build_base_dataset(params)
       open_orders_data = fetch_open_orders(params)
+      status = open_orders_data.fetch(:status)
 
       entities = open_orders_data.fetch(:orders)
       attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
-
-      # TODO: We also need to check "status" of #open_orders method completion
-      #       If error occurred then we maybe should return all open orders from database, not only synced records...
-      return [] if attributes.blank?
-
       synced_orders_ids = save(attributes)
 
-      schedule_status_check_of_old_open_orders(
+      if status == Brokers::STATUS_OK
+        results_dataset = base_dataset.where(id: synced_orders_ids)
+      else
+        results_dataset = base_dataset
+      end
+
+      check_old_open_orders(
         account: @account,
         base_dataset: base_dataset,
         synced_orders_ids: synced_orders_ids
       )
 
-      # TODO: We also need to check "status" of #open_orders method completion.
-      #       If error occurred then we maybe should return all open orders from database, not only synced records...
-      base_dataset.where(id: synced_orders_ids).order(Sequel.desc(:timestamp)).all
+      results_dataset.order(Sequel.desc(:timestamp)).all
     end
 
     private
@@ -119,7 +127,9 @@ module Orders
       )
     end
 
-    def schedule_status_check_of_old_open_orders(account:, base_dataset:, synced_orders_ids: [])
+    def check_old_open_orders(account:, base_dataset:, synced_orders_ids: [])
+      return if synced_orders_ids.blank?
+
       old_open_orders_ids = base_dataset.exclude(id: synced_orders_ids).select_map(:id)
       return if old_open_orders_ids.blank?
 
