@@ -1,3 +1,6 @@
+# This class performs synchronization of account's trades into local database.
+# Then returns array of trades' attributes from local database (synced data).
+
 module Trades
   class TradesSynchronizer
     CONFLICT_KEY_COLUMNS = %i[exchange_id oid params_digest].freeze
@@ -29,11 +32,9 @@ module Trades
       #       2) we need to sync related order (using method info), also in background.
       _synced_trades_ids = save(attributes)
 
-      # TODO: use base_dataset
       dataset = DB[:trades].where(exchange_id: @exchange.id, account_id: @account.id)
       dataset = dataset.where(pair_id: @pairs_ids) if @pairs_ids.present?
       dataset.order(Sequel.desc(:timestamp)).all
-
     end
 
     private
