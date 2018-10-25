@@ -276,7 +276,7 @@ module Brokers
 
       orders = Client.v1_1.request(:get, endpoint, params: params)
 
-      {}.tap do |book|
+      book = {}.tap do |book|
         book[:symbol] = aw_symbol
         book[:exchange] = exchange_name
         book[:bids] = []
@@ -292,6 +292,8 @@ module Brokers
           book[:asks] << Entities::Public::Ask.new(entity_values)
         end
       end
+
+      sort_book_results(book)
     end
 
     # aw_symbol: String
