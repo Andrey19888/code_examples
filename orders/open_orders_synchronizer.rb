@@ -1,6 +1,7 @@
 module Orders
   class OpenOrdersSynchronizer
-    CONFLICT_KEY_COLUMNS = %i[exchange_id oid].freeze
+    CONFLICT_KEY_COLUMNS    = %i[exchange_id oid].freeze
+    CONFLICT_UPDATE_COLUMNS = %i[status filled_qty updated_at].freeze
 
     MODEL = Order
 
@@ -79,8 +80,10 @@ module Orders
         pair_id = symbol_pair_id_map[entity.symbol]
         next unless pair_id
 
+        status = entity.partial? ? MODEL::Statuses::PARTIAL : MODEL::Statuses::OPEN
+
         params = entity.to_h.merge(
-          status: MODEL::Statuses::OPEN,
+          status: status,
           account_id: account.id,
           user_id: account.user_id,
           exchange_id: account.exchange_id,
@@ -105,16 +108,11 @@ module Orders
     end
 
     def save(attributes = [])
+      columns_to_update = CONFLICT_UPDATE_COLUMNS.map { |column| [column, Sequel[:excluded][column.to_sym]] }.to_h
+
       DB[:orders].insert_conflict(
         target: CONFLICT_KEY_COLUMNS,
-        update: {
-          status: Sequel.case(
-            { MODEL::Statuses::PARTIAL => MODEL::Statuses::PARTIAL },
-              Sequel[:excluded][:status],
-              Sequel[:orders][:status]
-          ),
-          updated_at: Sequel[:excluded][:updated_at]
-        },
+        update: columns_to_update,
         update_where: Sequel[:excluded][:updated_at] > Sequel[:orders][:updated_at]
       ).returning(:id).multi_insert(
         attributes
