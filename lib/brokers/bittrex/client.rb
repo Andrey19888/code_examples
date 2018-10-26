@@ -26,7 +26,14 @@ module Brokers
         response = HTTP.request(verb, url, options)
 
         if response.status.success?
-          response.parse
+          body = response.parse
+          if body.fetch('success')
+            body.fetch('result')
+          else
+            raise BaseBroker::Errors::ApiRequestError.new(
+              body: body.fetch('message')
+            )
+          end
         else
           raise BaseBroker::Errors::ApiRequestError.new(http_status: response.status, body: response.body)
         end

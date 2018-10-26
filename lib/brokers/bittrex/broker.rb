@@ -51,7 +51,7 @@ module Brokers
       endpoint = 'account/getbalances'
       data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
-      balance = data.fetch('result').map do |coin_balance|
+      balance = data.map do |coin_balance|
         coin = coin_balance.fetch('Currency').upcase
 
         entity           = Entities::Account::Balance.new(coin: coin)
@@ -84,7 +84,7 @@ module Brokers
       begin
         data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
-        orders = data.fetch('result').map do |order|
+        orders = data.map do |order|
           exchange_symbol = order.fetch('Exchange')
           aw_symbol = convert_to_aw_symbol(exchange_symbol)
           quantity  = to_currency(order.fetch('Quantity'))
@@ -131,7 +131,7 @@ module Brokers
       begin
         data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
-        trades = data.fetch('result').map do |trade|
+        trades = data.map do |trade|
           exchange_symbol = trade.fetch('Exchange')
           aw_symbol = convert_to_aw_symbol(exchange_symbol)
 
@@ -170,16 +170,15 @@ module Brokers
       uuid = params.fetch(:oid)
 
       data = AuthorizedClient.v1_1.auth(account).request(endpoint, { uuid: uuid })
-      info = data.fetch('result')
 
       order_header = build_exchange_account(exchange_name: exchange_name, key: account.fetch(:key)).merge(oid: uuid)
 
       Entities::Account::OrderInfo.new(order_header).tap do |entity|
-        entity.qty          = to_currency(info.fetch('Quantity'))
-        entity.price        = to_currency(info.fetch('Limit'))
-        entity.filled_qty   = entity.qty - to_currency(info.fetch('QuantityRemaining'))
-        entity.filled_price = to_currency(info.fetch('Limit'))
-        entity.active       = info.fetch('IsOpen')
+        entity.qty          = to_currency(data.fetch('Quantity'))
+        entity.price        = to_currency(data.fetch('Limit'))
+        entity.filled_qty   = entity.qty - to_currency(data.fetch('QuantityRemaining'))
+        entity.filled_price = to_currency(data.fetch('Limit'))
+        entity.active       = data.fetch('IsOpen')
       end
     end
 
@@ -207,17 +206,9 @@ module Brokers
       order_operation = Entities::Account::OrderOperation.new(exchange_account)
 
       begin
-        result = AuthorizedClient.v1_1.auth(account).request(endpoint, { uuid: uuid })
-        if result.fetch('success')
-          order_operation.oid = uuid.to_s
-          order_operation.status = STATUS_OK
-        else
-          error = Entities::Error.new(
-            message: result.fetch('message')
-          )
-          order_operation.error = error
-          order_operation.status = STATUS_ERROR
-        end
+        AuthorizedClient.v1_1.auth(account).request(endpoint, { uuid: uuid })
+        order_operation.oid = uuid.to_s
+        order_operation.status = STATUS_OK
       rescue BaseBroker::Errors::AlgowaveError => exception
         error = Entities::Error.for(exception)
         order_operation.error = error
@@ -269,8 +260,8 @@ module Brokers
       exchange_symbol = convert_to_exchange_symbol(aw_symbol)
       endpoint = "public/getorderbook"
       params = {
-          type: OPTIONS.fetch(:book).fetch(:type),
-          market: exchange_symbol
+        type: OPTIONS.fetch(:book).fetch(:type),
+        market: exchange_symbol
       }
 
       orders = Client.v1_1.request(:get, endpoint, params: params)
@@ -281,12 +272,12 @@ module Brokers
         book[:bids] = []
         book[:asks] = []
 
-        orders.fetch('result').fetch('buy').each do |bid|
+        orders.fetch('buy')&.each do |bid|
           entity_values = prepare_book_entity(bid)
           book[:bids] << Entities::Public::Bid.new(entity_values)
         end
 
-        orders.fetch('result').fetch('sell').each do |ask|
+        orders.fetch('sell')&.each do |ask|
           entity_values = prepare_book_entity(ask)
           book[:asks] << Entities::Public::Ask.new(entity_values)
         end
@@ -301,7 +292,7 @@ module Brokers
       endpoint = 'public/getmarkethistory'
       options = OPTIONS.fetch(:trade_history)
       params = {
-          market: exchange_symbol
+        market: exchange_symbol
       }
 
       trades = Client.v1_1.request(:get, endpoint, params: params)
@@ -311,7 +302,7 @@ module Brokers
         history[:exchange] = exchange_name
         history[:history] = []
 
-        trades.fetch('result').each do |trade|
+        trades&.each do |trade|
           trade_id  = trade.fetch('Id')
           price     = to_currency(trade.fetch('Price'))
           amount    = to_currency(trade.fetch('Total'))
@@ -320,12 +311,12 @@ module Brokers
           timestamp = Time.parse(trade.fetch('TimeStamp'))
 
           trade = Entities::Public::Trade.new(
-              qty: quantity,
-              price: price,
-              value: amount,
-              trade_no: trade_id.to_s,
-              timestamp: timestamp,
-              direction: direction
+            qty: quantity,
+            price: price,
+            value: amount,
+            trade_no: trade_id.to_s,
+            timestamp: timestamp,
+            direction: direction
           )
 
           history[:history] << trade
@@ -335,7 +326,7 @@ module Brokers
 
     def fetch_pairs
       endpoint = 'public/getmarketsummaries'
-      tickers = Client.v1_1.request(:get, endpoint).fetch('result')
+      tickers = Client.v1_1.request(:get, endpoint)
       fetched_at = Time.now.utc
 
       pairs = tickers.each.with_object({}) do |ticker, pairs|
@@ -390,17 +381,8 @@ module Brokers
 
       begin
         result = AuthorizedClient.v1_1.auth(account).request(endpoint, params)
-        if result.fetch('success')
-          order_operation.oid = result.fetch('result').fetch('uuid').to_s
-          order_operation.status = STATUS_OK
-        else
-          error = Entities::Error.new(
-            message: result.fetch('message')
-          )
-          order_operation.error = error
-          order_operation.status = STATUS_ERROR
-        end
-
+        order_operation.oid = result.fetch('uuid').to_s
+        order_operation.status = STATUS_OK
       rescue BaseBroker::Errors::AlgowaveError => exception
         error = Entities::Error.for(exception)
         order_operation.error = error
