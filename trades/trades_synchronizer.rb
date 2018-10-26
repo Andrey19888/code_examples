@@ -1,6 +1,8 @@
 # This class performs synchronization of account's trades into local database.
 # Then returns array of trades' attributes from local database (synced data).
 
+# TODO: consider using advisory locks
+
 module Trades
   class TradesSynchronizer
     CONFLICT_KEY_COLUMNS = %i[exchange_id oid params_digest].freeze

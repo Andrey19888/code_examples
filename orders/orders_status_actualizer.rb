@@ -1,3 +1,5 @@
+# TODO: rewrite this class to actualize all updateable attributes (status, filled_qty, ...)
+
 module Orders
   class OrdersStatusActualizer
     SKIP_PERIOD = 1.minute

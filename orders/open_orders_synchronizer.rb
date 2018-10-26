@@ -6,6 +6,8 @@
 # If all was ok then ONLY recently synchronized orders will be returned.
 # (all other orders with status "open/partial" are considered as "completed/closed" and we need to check their status in background)
 
+# TODO: consider using advisory locks
+
 module Orders
   class OpenOrdersSynchronizer
     CONFLICT_KEY_COLUMNS    = %i[exchange_id oid].freeze
