@@ -52,16 +52,17 @@ module Positions
         params = entity.to_h.merge(
           account_id: account.id,
           user_id: account.user_id,
-          exchange_id: account.exchange_id,
-          created_at: timestamp,
-          updated_at: timestamp
+          exchange_id: account.exchange_id
         )
 
         operation = Positions::Build.new(params)
         result = operation.perform
 
         if result.success?
-          result.data
+          result.data.merge(
+            created_at: timestamp,
+            updated_at: timestamp
+          )
         else
           raise InvalidPosition.new(params: params, errors: result.errors)
         end

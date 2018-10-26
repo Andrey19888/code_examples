@@ -72,16 +72,17 @@ module Trades
           user_id: account.user_id,
           exchange_id: account.exchange_id,
           pair_id: pair_id,
-          order_id: order_oid_internal_id_map[entity.oid],
-          created_at: current_timestamp,
-          updated_at: current_timestamp
+          order_id: order_oid_internal_id_map[entity.oid]
         )
 
         operation = Trades::Build.new(params)
         result = operation.perform
 
         if result.success?
-          result.data
+          result.data.merge(
+            created_at: current_timestamp,
+            updated_at: current_timestamp
+          )
         else
           raise InvalidTrade.new(params: params, errors: result.errors)
         end

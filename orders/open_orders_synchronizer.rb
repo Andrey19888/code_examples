@@ -97,16 +97,17 @@ module Orders
           account_id: account.id,
           user_id: account.user_id,
           exchange_id: account.exchange_id,
-          pair_id: pair_id,
-          created_at: current_timestamp,
-          updated_at: current_timestamp
+          pair_id: pair_id
         )
 
         operation = Orders::Build.new(params)
         result = operation.perform
 
         if result.success?
-          result.data
+          result.data.merge(
+            created_at: current_timestamp,
+            updated_at: current_timestamp
+          )
         else
           raise InvalidOrder.new(params: params, errors: result.errors)
         end
