@@ -35,11 +35,14 @@ module Orders
       status = open_orders_data.fetch(:status)
 
       entities = open_orders_data.fetch(:orders)
-      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
+      current_timestamp = Time.current
+      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
       synced_orders_ids = save(attributes)
 
       if status == Brokers::STATUS_OK
-        results_dataset = base_dataset.where(id: synced_orders_ids)
+        results_dataset = base_dataset.where do
+          (id =~ synced_orders_ids) | (updated_at > current_timestamp)
+        end
       else
         results_dataset = base_dataset
       end
@@ -81,10 +84,9 @@ module Orders
       broker.open_orders(account.credentials_hash, params)
     end
 
-    def build_attributes(exchange:, account:, entities:)
+    def build_attributes(exchange:, account:, entities:, timestamp:)
       symbols = entities.map(&:symbol)
       symbol_pair_id_map = build_symbol_pair_id_map(exchange: exchange, symbols: symbols)
-      current_timestamp = Time.current
 
       entities.map do |entity|
         pair_id = symbol_pair_id_map[entity.symbol]
@@ -92,12 +94,20 @@ module Orders
 
         status = entity.partial? ? MODEL::Statuses::PARTIAL : MODEL::Statuses::OPEN
 
+        # During synchronization we don't consider orders received exchange API as created by aw-api,
+        # that's why we set flag "aw_order" to "false".
+        # However this flag will be set to "true" in other code which creates order using aw-api.
+        # Besides, if someone set status to "true" this class will never set the value to false,
+        # because this column is not updated by INSERT CONFLICT.
+        aw_order = false
+
         params = entity.to_h.merge(
           status: status,
           account_id: account.id,
           user_id: account.user_id,
           exchange_id: account.exchange_id,
-          pair_id: pair_id
+          pair_id: pair_id,
+          aw_order: aw_order
         )
 
         operation = Orders::Build.new(params)
@@ -105,8 +115,8 @@ module Orders
 
         if result.success?
           result.data.merge(
-            created_at: current_timestamp,
-            updated_at: current_timestamp
+            created_at: timestamp,
+            updated_at: timestamp
           )
         else
           raise InvalidOrder.new(params: params, errors: result.errors)
