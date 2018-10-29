@@ -50,7 +50,7 @@ module Orders
       check_old_open_orders(
         account: @account,
         base_dataset: base_dataset,
-        synced_orders_ids: synced_orders_ids
+        results_dataset: results_dataset
       )
 
       results_dataset.order(Sequel.desc(:timestamp)).all
@@ -140,15 +140,13 @@ module Orders
       )
     end
 
-    def check_old_open_orders(account:, base_dataset:, synced_orders_ids: [])
-      return if synced_orders_ids.blank?
-
-      old_open_orders_ids = base_dataset.exclude(id: synced_orders_ids).select_map(:id)
-      return if old_open_orders_ids.blank?
+    def check_old_open_orders(account:, base_dataset:, results_dataset: [])
+      target_ids = base_dataset.select(:id).except(results_dataset.select(:id)).select_map(:id)
+      return if target_ids.blank?
 
       Orders::ActualizeOrdersStatusWorker.perform_async(
         account_id: account.id,
-        internal_orders_ids: old_open_orders_ids
+        internal_orders_ids: target_ids
       )
     end
   end

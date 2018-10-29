@@ -1,8 +1,5 @@
-# TODO: rewrite this class to actualize all updateable attributes (status, filled_qty, ...)
-
 module Orders
-  class OrdersStatusActualizer
-    SKIP_PERIOD = 1.minute
+  class OrderStatusActualizer
 
     def initialize(account_id:, internal_orders_ids:)
       @account_id = account_id
@@ -23,7 +20,14 @@ module Orders
         }
 
         info = broker.order_info(account.credentials_hash, params)
-        update(id: order.fetch(:id), status: info.detailed_status)
+
+        update(
+          id: order.fetch(:id),
+          attributes: {
+            status: info.detailed_status,
+            filled_qty: info.filled_qty
+          }
+        )
       end
     end
 
@@ -32,12 +36,17 @@ module Orders
     def load_orders(account:, ids:)
       base_dataset
         .where(exchange_id: account.exchange_id, account_id: account.id, id: ids)
-        .where { updated_at < Time.current - SKIP_PERIOD }
         .order(Sequel.desc(:timestamp))
     end
 
-    def update(id:, status:)
-      base_dataset.where(id: id).update(status: status, updated_at: Time.current)
+    def update(id:, attributes: {})
+      current_timestamp = Time.current
+
+      dataset = base_dataset.where do
+        (Sequel[:id] =~ id) & (Sequel[:updated_at] < current_timestamp)
+      end
+
+      dataset.update(attributes.merge(updated_at: current_timestamp))
     end
 
     def base_dataset
