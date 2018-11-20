@@ -1,7 +1,7 @@
 module Brokers
   class Bittrex
     class Client < BaseClient
-      REQUEST_TYPE = 'public'
+      REQUEST_TYPE = 'public'.freeze
 
       ENDPOINTS = {
         v1: 'https://bittrex.com/api/v1/'.freeze,     # Stable version
