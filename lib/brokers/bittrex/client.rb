@@ -1,6 +1,8 @@
 module Brokers
   class Bittrex
-    class Client
+    class Client < BaseClient
+      REQUEST_TYPE = 'public'
+
       ENDPOINTS = {
         v1: 'https://bittrex.com/api/v1/'.freeze,     # Stable version
         v1_1: 'https://bittrex.com/api/v1.1/'.freeze  # Beta version
@@ -21,22 +23,32 @@ module Brokers
         end
       end
 
-      def request(verb, method_endpoint, options = {})
-        url = File.join(@base_endpoint, method_endpoint.to_s)
-        response = HTTP.request(verb, url, options)
+      private
 
-        if response.status.success?
-          body = response.parse
-          if body.fetch('success')
-            body.fetch('result')
-          else
-            raise BaseBroker::Errors::ApiRequestError.new(
-              body: body.fetch('message')
-            )
-          end
-        else
-          raise BaseBroker::Errors::ApiRequestError.new(http_status: response.status, body: response.body)
-        end
+      def endpoint
+        @base_endpoint
+      end
+
+      def request_type
+        REQUEST_TYPE
+      end
+
+      def response_body_valid?(response)
+        body = parse_response(response)
+        body.fetch('success')
+      end
+
+      def raise_body_error(response)
+        body = parse_response(response)
+        raise BaseBroker::Errors::ApiRequestError.new(body: body.fetch('message'))
+      end
+
+      def parse_response(response)
+        response.parse
+      end
+
+      def extract_data(response)
+        parse_response(response).fetch('result')
       end
     end
   end

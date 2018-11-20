@@ -3,6 +3,8 @@ module Brokers
     class AuthorizedClient < Client
       ApiTokensNotSpecified = Class.new(StandardError)
 
+      REQUEST_TYPE = 'authorized'
+
       def auth(key:, secret:, **args)
         @key = key&.to_s
         @secret = secret&.to_s
@@ -34,6 +36,10 @@ module Brokers
       end
 
       private
+
+      def request_type
+        REQUEST_TYPE
+      end
 
       def signature(payload, secret:)
         OpenSSL::HMAC.hexdigest('sha512', secret, payload)

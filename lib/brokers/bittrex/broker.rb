@@ -10,6 +10,8 @@ module Brokers
     config.pairs.cache_period = 15
     config.trade_history.cache_period = 10
 
+    config.direct_public_request_disable_time = 5
+
     OPTIONS = {
       book: {
         type: 'both' # buy, sell or both to identify the type of orderbook to return
@@ -104,9 +106,8 @@ module Brokers
 
         operation_status[:status] = STATUS_OK
 
-          # TODO: log error into Redis
       rescue BaseBroker::Errors::AlgowaveError => exception
-        STDERR.puts "[#{exchange_name}] #{exception.message}"
+        LOGGER.error("[#{exchange_name}] #{exception.message}")
         operation_status[:error] = Entities::Error.for(exception)
         operation_status[:status] = STATUS_ERROR
       end
@@ -148,9 +149,8 @@ module Brokers
 
         operation_status[:status] = STATUS_OK
 
-      # TODO: log error into Redis
       rescue BaseBroker::Errors::AlgowaveError => exception
-        STDERR.puts "[#{exchange_name}] #{exception.message}"
+        LOGGER.error("[#{exchange_name}] #{exception.message}")
         operation_status[:error] = Entities::Error.for(exception)
         operation_status[:status] = STATUS_ERROR
       end
