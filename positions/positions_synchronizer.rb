@@ -6,9 +6,6 @@
 
 module Positions
   class PositionsSynchronizer
-    CONFLICT_KEY_COLUMNS    = %i[exchange_id account_id coin].freeze
-    CONFLICT_UPDATE_COLUMNS = %i[total available on_orders usd_value btc_value updated_at].freeze
-
     MODEL = Position
 
     class InvalidPosition < StandardError
@@ -24,20 +21,24 @@ module Positions
     end
 
     def perform
+      synced_positions_ids = sync_positions_data
+
+      dataset = DB[:positions].where(exchange_id: @exchange.id, account_id: @account.id)
+      dataset = dataset.where { (id =~ synced_positions_ids) }
+      dataset = dataset.where { total > 0 } if @only_positive
+
+      coins = dataset.order(Sequel.desc(:usd_value, nulls: :last))
+      build_result(coins.all)
+    end
+
+    def sync_positions_data
       positions_data = fetch_positions_data(exchange: @exchange, account: @account)
       entities = positions_data.values
 
       current_timestamp = Time.current
       attributes = build_attributes(account: @account, entities: entities, timestamp: current_timestamp)
 
-      synced_positions_ids = save(attributes)
-
-      dataset = DB[:positions].where(exchange_id: @exchange.id, account_id: @account.id)
-      dataset = dataset.where { (id =~ synced_positions_ids) | (updated_at > current_timestamp) }
-      dataset = dataset.where { total > 0 } if @only_positive
-
-      coins = dataset.order(Sequel.desc(:usd_value, nulls: :last))
-      build_result(coins.all)
+      save(attributes)
     end
 
     private
@@ -60,8 +61,7 @@ module Positions
 
         if result.success?
           result.data.merge(
-            created_at: timestamp,
-            updated_at: timestamp
+            synchronized_at: timestamp
           )
         else
           raise InvalidPosition.new(params: params, errors: result.errors)
@@ -89,15 +89,7 @@ module Positions
     end
 
     def save(attributes = [])
-      columns_to_update = CONFLICT_UPDATE_COLUMNS.map { |column| [column, Sequel[:excluded][column.to_sym]] }.to_h
-
-      DB[:positions].insert_conflict(
-        target: CONFLICT_KEY_COLUMNS,
-        update: columns_to_update,
-        update_where: Sequel[:excluded][:updated_at] > Sequel[:positions][:updated_at]
-      ).returning(:id).multi_insert(
-        attributes
-      )
+      DB[:positions].returning(:id).multi_insert(attributes)
     end
   end
 end
