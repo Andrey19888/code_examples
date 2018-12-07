@@ -144,7 +144,7 @@ module Orders
       target_ids = base_dataset.select(:id).except(results_dataset.select(:id)).select_map(:id)
       return if target_ids.blank?
 
-      Orders::ActualizeOrdersStatusWorker.perform_async(
+      ActualizeOrdersStatusWorker.perform_async(
         account_id: account.id,
         internal_orders_ids: target_ids
       )
