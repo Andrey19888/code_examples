@@ -13,11 +13,15 @@ module Coins
     BUCKET = ENV.fetch('AWS_S3_BUCKET').freeze
     BUCKET_PATH = 'coins'.freeze
 
-    def initialize(meta_id)
+    # force `true` means that meta with existent aw log should also be processed, default if `false`
+    def initialize(meta_id, force: false)
       @meta = CoinMeta.find(meta_id)
+      @skip_existent = !force
     end
 
     def perform
+      return if @meta.aw_image_url && @skip_existent
+
       downloaded_file = download_cmc_logo
       s3_public_url = upload_to_s3(downloaded_file)
       @meta.update(aw_image_url: s3_public_url)

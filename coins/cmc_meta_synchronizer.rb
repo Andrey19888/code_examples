@@ -21,8 +21,16 @@ module Coins
     end
 
     def perform
-      # { cmc_id => internal_coin_id }
-      mapping = DB[:coins].exclude(cmc_id: nil).select_hash(:cmc_id, :id)
+      mapping = target_coins
+      return if mapping.blank?
+
+      DB[:coins]
+        .left_join(:coins_meta, coin_id: :id)
+        .where do
+          (Sequel[:coins_meta][:id] =~ nil) | (Sequel[:coins_meta][:updated_at] <= 3.day.ago)
+        end
+        .exclude(cmc_id: nil)
+        .select_hash(Sequel[:coins][:cmc_id], Sequel[:coins][:id])
 
       cmc_ids = mapping.keys
 
@@ -39,6 +47,15 @@ module Coins
     end
 
     private
+
+    # returns target coins to sync meta: { cmc_id => internal_coin_id, ... }
+    def target_coins(force_include_older_than: 1.month.ago)
+      DB[:coins]
+        .left_join(:coins_meta, coin_id: :id)
+        .where { (Sequel[:coins_meta][:id] =~ nil) | (Sequel[:coins_meta][:updated_at] <= force_include_older_than) }
+        .exclude(cmc_id: nil)
+        .select_hash(Sequel[:coins][:cmc_id], Sequel[:coins][:id])
+    end
 
     def build_attributes(raw_meta:, mapping:)
       raw_meta.map do |cmc_id, meta|
