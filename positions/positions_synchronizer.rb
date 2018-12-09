@@ -1,9 +1,6 @@
 # This class performs synchronization of account's position (balance coins)
 # Then returns positions hash from local database (synced data).
 
-# TODO: catch error while fetching balance from exchange's API
-# TODO: consider using advisory locks
-
 module Positions
   class PositionsSynchronizer
     MODEL = Position
