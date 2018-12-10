@@ -5,7 +5,7 @@
 
 module Trades
   class TradesSynchronizer
-    CONFLICT_KEY_COLUMNS = %i[exchange_id oid params_digest].freeze
+    CONFLICT_KEY_COLUMNS = %i[account_id exchange_id oid params_digest].freeze
 
     MODEL = Trade
 
@@ -59,7 +59,7 @@ module Trades
       symbol_pair_id_map = build_symbol_pair_id_map(exchange: exchange, symbols: symbols)
 
       oids = entities.map(&:oid)
-      order_oid_internal_id_map = build_order_oid_internal_id_map(exchange: exchange, oids: oids)
+      order_oid_internal_id_map = build_order_oid_internal_id_map(account: account, exchange: exchange, oids: oids)
 
       current_timestamp = Time.current
 
@@ -94,10 +94,8 @@ module Trades
       exchange.pairs.where(symbol: symbols.uniq).pluck(:symbol, :id).to_h
     end
 
-    def build_order_oid_internal_id_map(exchange:, oids: [])
-      # TODO: we also need to filter by account_id to increase security,
-      # but we need to check if index will be used before add additional condition
-      DB[:orders].where(exchange_id: exchange.id, oid: oids.uniq).select_hash(:oid, :id)
+    def build_order_oid_internal_id_map(account:, exchange:, oids: [])
+      DB[:orders].where(account_id: account.id, exchange_id: exchange.id, oid: oids.uniq).select_hash(:oid, :id)
     end
 
     def save(attributes = [])

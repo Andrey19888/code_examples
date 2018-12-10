@@ -10,8 +10,8 @@
 
 module Orders
   class OpenOrdersSynchronizer
-    CONFLICT_KEY_COLUMNS    = %i[exchange_id oid].freeze
-    CONFLICT_UPDATE_COLUMNS = %i[status filled_qty updated_at].freeze
+    CONFLICT_KEY_COLUMNS    = %i[account_id exchange_id oid].freeze
+    CONFLICT_UPDATE_COLUMNS = %i[account_id status filled_qty updated_at].freeze
 
     MODEL = Order
 
