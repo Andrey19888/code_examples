@@ -28,5 +28,21 @@ module Auth
         refresh_token: refresh_token
       }
     end
+
+    def generate_temp_token(user_id:, validity:)
+      current_timestamp = Time.current
+
+      jwt_generator = Auth::JwtGenerator.new
+      jwt_generator.generate(
+        data: {
+          user_id: user_id,
+          generated_by: @generated_by,
+          generated_at: current_timestamp,
+          temp: true
+        },
+
+        expires_at: current_timestamp + validity
+      )
+    end
   end
 end
