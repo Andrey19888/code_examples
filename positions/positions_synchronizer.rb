@@ -3,6 +3,8 @@
 
 module Positions
   class PositionsSynchronizer
+    include ClassLoggable
+
     MODEL = Position
 
     class InvalidPosition < StandardError
@@ -11,38 +13,35 @@ module Positions
       end
     end
 
-    def initialize(account:, exchange: nil, only_positive: false)
+    def initialize(account:, exchange: nil)
       @account = account
       @exchange = exchange || account.exchange
-      @only_positive = only_positive
     end
 
     def perform
-      synced_positions_ids = sync_positions_data
-
-      dataset = DB[:positions].where(exchange_id: @exchange.id, account_id: @account.id)
-      dataset = dataset.where { (id =~ synced_positions_ids) }
-      dataset = dataset.where { total > 0 } if @only_positive
-
-      coins = dataset.order(Sequel.desc(:usd_value, nulls: :last))
-      build_result(coins.all)
+      sync
     end
 
-    def sync_positions_data
-      positions_data = fetch_positions_data(exchange: @exchange, account: @account)
-      entities = positions_data.values
+    private
+
+    def sync
+      begin
+        broker = BrokersInstances.for(@exchange.name)
+        positions_data = broker.balance(@account.credentials_hash).fetch(:balance)
+        entities = positions_data.values
+
+      rescue StandardError => exception
+        log(:error, "Couldn't fetch balance from broker")
+        log(:error, exception.message)
+        log(:error, exception.backtrace)
+      end
+
+      return unless entities
 
       current_timestamp = Time.current
       attributes = build_attributes(account: @account, entities: entities, timestamp: current_timestamp)
 
       save(attributes)
-    end
-
-    private
-
-    def fetch_positions_data(exchange:, account:)
-      broker = BrokersInstances.for(exchange.name)
-      broker.balance(account.credentials_hash).fetch(:balance)
     end
 
     def build_attributes(account:, entities:, timestamp:)
@@ -64,25 +63,6 @@ module Positions
           raise InvalidPosition.new(params: params, errors: result.errors)
         end
       end.compact
-    end
-
-    def build_result(coins)
-      {
-        total_usd: BigDecimal(0),
-        total_btc: BigDecimal(0),
-        coins: coins
-      }.tap do |result|
-
-        coins.each do |coin|
-          if (usd = coin.fetch(:usd_value))
-            result[:total_usd] += usd
-          end
-
-          if (btc = coin.fetch(:btc_value))
-            result[:total_btc] += btc
-          end
-        end
-      end
     end
 
     def save(attributes = [])
