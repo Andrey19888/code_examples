@@ -10,7 +10,7 @@ module Brokers
     config.pairs.cache_period = 15
     config.trade_history.cache_period = 10
 
-    config.direct_public_request_disable_time = 5
+    config.direct_public_request_disable_time = 2
 
     OPTIONS = {
       book: {
