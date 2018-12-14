@@ -11,7 +11,7 @@ module Coins
       recent_timestamp = DB[:coins_history].where(coin_id: @coin_id, data_source: CcHistoryWriter::DATA_SOURCE).max(:timestamp)
       history = CcHistoryFetcher.new.fetch(symbol: @symbol, convert_to: CONVERT_TO, from: recent_timestamp)
       writer = CcHistoryWriter.new(coin_id: @coin_id, converted_to: CONVERT_TO)
-      writer.write(history).size
+      writer.write(history)
     end
   end
 end
