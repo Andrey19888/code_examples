@@ -81,6 +81,7 @@ module Brokers
       endpoint = 'market/getopenorders'
       options = OPTIONS.fetch(:open_orders)
       kind = options.fetch(:kind)
+      orders = []
       operation_status = {}
 
       begin
@@ -127,6 +128,7 @@ module Brokers
       endpoint = 'account/getorderhistory'
       options = OPTIONS.fetch(:trades)
       kind = options.fetch(:kind)
+      trades = []
       operation_status = {}
 
       begin
