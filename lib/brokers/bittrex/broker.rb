@@ -145,7 +145,7 @@ module Brokers
             timestamp: Time.parse(trade.fetch('TimeStamp')),
             op:        options.fetch(:trade_type).fetch(trade.fetch('OrderType').downcase.to_sym),
             qty:       to_currency(trade.fetch('Quantity')),
-            price:     to_currency(trade.fetch('Limit'))
+            price:     to_currency(trade.fetch('PricePerUnit'))
           )
         end
 
