@@ -25,7 +25,8 @@ module Orders
           id: order.fetch(:id),
           attributes: {
             status: info.detailed_status,
-            filled_qty: info.filled_qty
+            filled_qty: info.filled_qty,
+            executed_price: info.filled_price
           }
         )
       end
