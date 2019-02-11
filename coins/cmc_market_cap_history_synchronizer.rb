@@ -3,13 +3,6 @@ module Coins
 
     CMC_PRO_API_PLAN_HISTORY_LIMIT = ENV.fetch('CMC_PRO_API_PLAN_HISTORY_LIMIT').freeze
 
-    # CMC field -> database field
-    MAPPING = {
-      total_market_cap: :total_market_cap,
-      total_volume_24h: :total_volume_24h,
-      timestamp:        :timestamp
-    }.freeze
-
     class InvalidMarketCapHistory < StandardError
       def initialize(params:, errors:)
         super("errors: #{errors.inspect}; params: #{params.inspect}")
@@ -36,14 +29,12 @@ module Coins
     end
 
     def build_attributes(raw_data)
-      raw_data.fetch('quotes').map do |history_point|
-        cmc_point = history_point.fetch('quote').fetch('USD')
-        params = {}
-
-        MAPPING.each do |cmc_attribute, attribute|
-          value = cmc_point.fetch(cmc_attribute.to_s)
-          params[attribute] = value
-        end
+      raw_data.map do |history_point|
+        params = {
+          total_market_cap: history_point.fetch('market_cap_by_available_supply'),
+          total_volume_24h: history_point.fetch('volume_usd'),
+          timestamp:        history_point.fetch('timestamp')
+        }
 
         operation = Coins::BuildMarketCapHistory.new(params)
         result = operation.perform

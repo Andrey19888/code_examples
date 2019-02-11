@@ -65,8 +65,8 @@ module Exchanges
 
     def save(attributes)
       DB[:trade_history]
-          .insert_conflict(target: CONFLICT_KEY_COLUMNS)
-          .multi_insert(attributes)
+        .insert_conflict(target: CONFLICT_KEY_COLUMNS)
+        .multi_insert(attributes)
     end
   end
 end
