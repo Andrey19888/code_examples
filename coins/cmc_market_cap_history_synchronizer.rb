@@ -1,8 +1,6 @@
 module Coins
   class CmcMarketCapHistorySynchronizer
 
-    CMC_PRO_API_PLAN_HISTORY_LIMIT = ENV.fetch('CMC_PRO_API_PLAN_HISTORY_LIMIT').freeze
-
     class InvalidMarketCapHistory < StandardError
       def initialize(params:, errors:)
         super("errors: #{errors.inspect}; params: #{params.inspect}")
@@ -10,7 +8,9 @@ module Coins
     end
 
     def perform
-      from = last_history_point + 1.minute
+      last = recent_timestamp
+      from = last ? (recent_timestamp + 1.minute) : nil
+
       raw_data = CmcMarketCapHistoryFetcher.new.fetch(from: from)
       attributes = build_attributes(raw_data)
 
@@ -19,13 +19,9 @@ module Coins
 
     private
 
-    def last_history_point
+    def recent_timestamp
       history_point = DB[:market_cap_history].order(Sequel.desc(:timestamp)).first
-      history_point&.fetch(:timestamp) || Time.current.utc - days_left
-    end
-
-    def days_left
-      CMC_PRO_API_PLAN_HISTORY_LIMIT.to_i.days
+      history_point&.fetch(:timestamp)
     end
 
     def build_attributes(raw_data)
