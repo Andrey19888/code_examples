@@ -285,7 +285,7 @@ module Brokers
         end
       end
 
-      sort_book_results(book)
+      sort_book_results!(book)
     end
 
     # aw_symbol: String
