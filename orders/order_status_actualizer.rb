@@ -8,6 +8,7 @@ module Orders
 
     def perform
       account = Account.find(@account_id)
+      return if account.deactivated_at
 
       broker = BrokersInstances.for(account.exchange.name)
       orders = load_orders(account: account, ids: @ids)

@@ -1,8 +1,6 @@
 # This class performs synchronization of account's trades into local database.
 # Then returns array of trades' attributes from local database (synced data).
 
-# TODO: consider using advisory locks
-
 module Trades
   class TradesSynchronizer
     CONFLICT_KEY_COLUMNS = %i[account_id exchange_id oid params_digest].freeze
@@ -15,13 +13,15 @@ module Trades
       end
     end
 
-    def initialize(account:, exchange: nil, pairs_ids: [])
+    def initialize(account:, pairs_ids: [])
       @account = account
-      @exchange = exchange || account.exchange
+      @exchange = account.exchange
       @pairs_ids = pairs_ids
     end
 
     def perform
+      return if @account.deactivated_at
+
       params = { exchange: @exchange, account: @account, pairs_ids: @pairs_ids }
 
       trades_data = fetch_trades(params)
@@ -33,10 +33,6 @@ module Trades
       #       1) we need to check status of corresponding orders in background.
       #       2) we need to sync related order (using method info), also in background.
       _synced_trades_ids = save(attributes)
-
-      dataset = DB[:trades].where(exchange_id: @exchange.id, account_id: @account.id)
-      dataset = dataset.where(pair_id: @pairs_ids) if @pairs_ids.present?
-      dataset.order(Sequel.desc(:timestamp)).all
     end
 
     private
@@ -45,7 +41,6 @@ module Trades
       broker = BrokersInstances.for(exchange.name)
       params = {}
 
-      # TODO: DRY / See OpenOrdersSynchronizer
       if pairs_ids.present?
         aw_symbols = DB[:pairs].where(exchange_id: exchange.id, id: pairs_ids).select_map(:symbol)
         params[:pair] = aw_symbols
@@ -89,7 +84,6 @@ module Trades
       end.compact
     end
 
-    # TODO: DRY / See OpenOrdersSynchronizer
     def build_symbol_pair_id_map(exchange:, symbols: [])
       exchange.pairs.where(symbol: symbols.uniq).pluck(:symbol, :id).to_h
     end

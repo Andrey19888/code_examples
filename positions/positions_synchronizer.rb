@@ -6,6 +6,7 @@ module Positions
     include ClassLoggable
 
     MODEL = Position
+    DEACTIVATE_ACCOUNT_ON_FAILED_CREDENTIALS_CHECKS = Integer(ENV.fetch('DEACTIVATE_ACCOUNT_ON_FAILED_CREDENTIALS_CHECKS'))
 
     class InvalidPosition < StandardError
       def initialize(params:, errors:)
@@ -13,18 +14,20 @@ module Positions
       end
     end
 
-    def initialize(account:, exchange: nil)
+    def initialize(account)
       @account = account
-      @exchange = exchange || account.exchange
+      @exchange = account.exchange
     end
 
-    def perform
-      sync
+    def perform(bad_credentials_check: false)
+      return if @account.deactivated_at
+
+      sync(bad_credentials_check)
     end
 
     private
 
-    def sync
+    def sync(bad_credentials_check)
       begin
         broker = BrokersInstances.for(@exchange.name)
         positions_data = broker.balance(@account.credentials_hash).fetch(:balance)
@@ -34,6 +37,14 @@ module Positions
         log(:error, "Couldn't fetch balance from broker")
         log(:error, exception.message)
         log(:error, exception.backtrace)
+
+        if bad_credentials_check
+          @account.increment!(:failed_credentials_checks)
+          if @account.failed_credentials_checks >= DEACTIVATE_ACCOUNT_ON_FAILED_CREDENTIALS_CHECKS
+            operation = Accounts::Deactivate.new(id: @account.id, reason: Accounts::Deactivate::Reasons::BAD_CREDENTIALS)
+            operation.perform
+          end
+        end
       end
 
       return unless entities

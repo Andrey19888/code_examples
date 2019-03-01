@@ -6,8 +6,6 @@
 # If all was ok then ONLY recently synchronized orders will be returned.
 # (all other orders with status "open/partial" are considered as "completed/closed" and we need to check their status in background)
 
-# TODO: consider using advisory locks
-
 module Orders
   class OpenOrdersSynchronizer
     CONFLICT_KEY_COLUMNS    = %i[account_id exchange_id oid].freeze
@@ -21,9 +19,9 @@ module Orders
       end
     end
 
-    def initialize(account:, exchange: nil, pairs_ids: [])
+    def initialize(account:, pairs_ids: [])
       @account = account
-      @exchange = exchange || account.exchange
+      @exchange = account.exchange
       @pairs_ids = pairs_ids
     end
 
@@ -31,6 +29,10 @@ module Orders
       params = { exchange: @exchange, account: @account, pairs_ids: @pairs_ids }
 
       base_dataset = build_base_dataset(params)
+      if @account.deactivated_at
+        return base_dataset.order(Sequel.desc(:timestamp)).all
+      end
+
       open_orders_data = fetch_open_orders(params)
       status = open_orders_data.fetch(:status)
 
