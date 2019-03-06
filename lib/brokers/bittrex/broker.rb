@@ -237,15 +237,6 @@ module Brokers
       "#{pair.fetch(:base_coin)}-#{pair.fetch(:quote_coin)}".upcase
     end
 
-    def convert_to_aw_symbol(exchange_symbol)
-      info = parse_exchange_symbol(exchange_symbol)
-
-      build_aw_symbol(
-        base_coin: info.fetch(:base_coin),
-        quote_coin: info.fetch(:quote_coin)
-      )
-    end
-
     def prepare_book_entity(order)
       price = to_currency(order.fetch('Rate'))
       qty = to_currency(order.fetch('Quantity'))
