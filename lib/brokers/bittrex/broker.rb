@@ -6,6 +6,9 @@ module Brokers
     config.pairs.fees.taker_buy_max = 0.25
     config.pairs.fees.taker_sell_max = 0.25
 
+    config.pairs.precision.amount = 8
+    config.pairs.precision.price = 8
+
     config.book.cache_period = 10
     config.pairs.cache_period = 15
     config.trade_history.cache_period = 10
@@ -322,7 +325,7 @@ module Brokers
       tickers = Client.v1_1.request(:get, endpoint)
       fetched_at = Time.now.utc
 
-      pairs = tickers.each.with_object({}) do |ticker, pairs|
+      tickers.each.with_object({}) do |ticker, pairs|
         exchange_symbol = ticker.fetch('MarketName')
         exchange_symbol_info = parse_exchange_symbol(exchange_symbol)
         aw_symbol = build_aw_symbol(exchange_symbol_info.slice(:base_coin, :quote_coin))
@@ -347,6 +350,7 @@ module Brokers
           ask:          to_currency(ticker.fetch('Ask')),
           open:         open,
           fees:         fees,
+          precision:    precision,
           enabled:      volume > 0,
 
           change_percent: calc_change_percent(open: open, close: close),
@@ -355,10 +359,6 @@ module Brokers
 
         pairs[aw_symbol] = pair
       end
-
-      precision = max_precision_of(pairs)
-      pairs.values.map { |pair| pair.precision = precision }
-      pairs
     end
 
     def create_order(account:, endpoint:, pair:, limit:, qty:)
