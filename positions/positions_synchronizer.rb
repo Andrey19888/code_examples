@@ -52,7 +52,10 @@ module Positions
       current_timestamp = Time.current
       attributes = build_attributes(account: @account, entities: entities, timestamp: current_timestamp)
 
-      save(attributes)
+      DB.transaction do
+        save_to_actual(account: @account, attributes: attributes)
+        save_to_history(attributes)
+      end
     end
 
     def build_attributes(account:, entities:, timestamp:)
@@ -76,8 +79,13 @@ module Positions
       end.compact
     end
 
-    def save(attributes = [])
+    def save_to_history(attributes = [])
       DB[:positions].returning(:id).multi_insert(attributes)
+    end
+
+    def save_to_actual(account:, attributes:)
+      DB[:actual_positions].where(exchange_id: account.exchange_id, account_id: account.id).delete
+      DB[:actual_positions].multi_insert(attributes)
     end
   end
 end
