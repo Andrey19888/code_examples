@@ -30,7 +30,7 @@ module Orders
 
       base_dataset = build_base_dataset(params)
       if @account.deactivated_at
-        return base_dataset.order(Sequel.desc(:timestamp)).all
+        return base_dataset.order(Sequel.desc(:timestamp))
       end
 
       open_orders_data = fetch_open_orders(params)
@@ -55,7 +55,7 @@ module Orders
         results_dataset: results_dataset
       )
 
-      results_dataset.order(Sequel.desc(:timestamp)).all
+      results_dataset.order(Sequel.desc(:timestamp))
     end
 
     private
