@@ -136,18 +136,22 @@ module Brokers
 
       begin
         data = AuthorizedClient.v1_1.auth(account).request(endpoint)
+        data.each do |trade|
+          qty = to_currency(trade.fetch('Quantity'))
+          remaining_qty = to_currency(trade.fetch('QuantityRemaining'))
+          executed_qty = qty - remaining_qty
+          next if executed_qty == 0
 
-        trades = data.map do |trade|
           exchange_symbol = trade.fetch('Exchange')
           aw_symbol = convert_to_aw_symbol(exchange_symbol)
 
-          Entities::Account::Trade.new(
+          trades << Entities::Account::Trade.new(
             symbol:    aw_symbol,
             kind:      kind,
             oid:       trade.fetch('OrderUuid').to_s,
             timestamp: Time.parse(trade.fetch('TimeStamp')),
             op:        options.fetch(:trade_type).fetch(trade.fetch('OrderType').downcase.to_sym),
-            qty:       to_currency(trade.fetch('Quantity')),
+            qty:       executed_qty,
             price:     to_currency(trade.fetch('PricePerUnit')) || to_currency(trade.fetch('Limit'))
           )
         end
