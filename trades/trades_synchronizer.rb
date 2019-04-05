@@ -13,14 +13,18 @@ module Trades
       end
     end
 
-    def initialize(account:, pairs_ids: [])
+    def initialize(account:, pairs_ids: [], sync_id: nil)
       @account = account
       @exchange = account.exchange
       @pairs_ids = pairs_ids
+      @sync_id = sync_id
     end
 
     def perform
-      return if @account.deactivated_at
+      if @account.deactivated_at
+        Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_failed('Account deactivated')
+        return
+      end
 
       params = { exchange: @exchange, account: @account, pairs_ids: @pairs_ids }
 
@@ -28,7 +32,6 @@ module Trades
       entities = trades_data.fetch(:trades)
 
       attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
-      Synchronization::SyncStatus.new('trade', @account).update_sync(attributes)
 
       # TODO: for recently synced trades
       #       1) we need to check status of corresponding orders in background.
@@ -80,6 +83,7 @@ module Trades
             updated_at: current_timestamp
           )
         else
+          Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_failed(result.errors)
           raise InvalidTrade.new(params: params, errors: result.errors)
         end
       end.compact
@@ -97,6 +101,7 @@ module Trades
       DB[:trades]
         .insert_conflict(target: CONFLICT_KEY_COLUMNS)
         .returning(:id).multi_insert(attributes)
+      Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_succeed
     end
   end
 end
