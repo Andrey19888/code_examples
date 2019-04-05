@@ -28,6 +28,7 @@ module Trades
       entities = trades_data.fetch(:trades)
 
       attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
+      Synchronization::SyncStatus.new('trade', @account).update_sync(attributes)
 
       # TODO: for recently synced trades
       #       1) we need to check status of corresponding orders in background.
