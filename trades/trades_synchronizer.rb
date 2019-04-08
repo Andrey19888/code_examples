@@ -22,7 +22,7 @@ module Trades
 
     def perform
       if @account.deactivated_at
-        Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_failed('Account deactivated')
+        Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_failed('Account deactivated')
         return
       end
 
@@ -83,7 +83,7 @@ module Trades
             updated_at: current_timestamp
           )
         else
-          Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_failed(result.errors)
+          Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_failed(result.errors)
           raise InvalidTrade.new(params: params, errors: result.errors)
         end
       end.compact
@@ -101,7 +101,7 @@ module Trades
       DB[:trades]
         .insert_conflict(target: CONFLICT_KEY_COLUMNS)
         .returning(:id).multi_insert(attributes)
-      Synchronization::Synchronizer.new('trade', @account, @sync_id).sync_succeed
+      Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_succeed
     end
   end
 end

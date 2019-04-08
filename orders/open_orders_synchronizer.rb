@@ -19,10 +19,11 @@ module Orders
       end
     end
 
-    def initialize(account:, pairs_ids: [])
+    def initialize(account:, pairs_ids: [], sync_id: nil)
       @account = account
       @exchange = account.exchange
       @pairs_ids = pairs_ids
+      @sync_id = sync_id
     end
 
     def perform
@@ -30,6 +31,7 @@ module Orders
 
       base_dataset = build_base_dataset(params)
       if @account.deactivated_at
+        Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_failed('Account deactivated')
         return base_dataset.order(Sequel.desc(:timestamp))
       end
 
@@ -121,6 +123,7 @@ module Orders
             updated_at: timestamp
           )
         else
+          Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_failed(result.errors)
           raise InvalidOrder.new(params: params, errors: result.errors)
         end
       end.compact
@@ -133,13 +136,15 @@ module Orders
     def save(attributes = [])
       columns_to_update = CONFLICT_UPDATE_COLUMNS.map { |column| [column, Sequel[:excluded][column.to_sym]] }.to_h
 
-      DB[:orders].insert_conflict(
+      ids = DB[:orders].insert_conflict(
         target: CONFLICT_KEY_COLUMNS,
         update: columns_to_update,
         update_where: Sequel[:excluded][:updated_at] > Sequel[:orders][:updated_at]
       ).returning(:id).multi_insert(
         attributes
       )
+      Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_succeed
+      ids
     end
 
     def check_old_open_orders(account:, base_dataset:, results_dataset: [])
