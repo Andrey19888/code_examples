@@ -47,6 +47,8 @@ module Positions
         end
       end
 
+      Accounts::FlushDeactivationState.new(account: @account).perform
+
       return unless entities
 
       current_timestamp = Time.current
