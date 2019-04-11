@@ -14,13 +14,17 @@ module Positions
       end
     end
 
-    def initialize(account)
+    def initialize(account:, sync_id: nil)
       @account = account
       @exchange = account.exchange
+      @sync_id = sync_id
     end
 
     def perform(bad_credentials_check: false)
-      return if @account.deactivated_at
+      if @account.deactivated_at
+        Synchronization::Synchronizer.new(sync_type: 'positions', account: @account, sync_id: @sync_id).sync_failed('Account deactivated')
+        return
+      end
 
       sync(bad_credentials_check)
     end
@@ -76,6 +80,7 @@ module Positions
             synchronized_at: timestamp
           )
         else
+          Synchronization::Synchronizer.new(sync_type: 'positions', account: @account, sync_id: @sync_id).sync_failed(result.errors)
           raise InvalidPosition.new(params: params, errors: result.errors)
         end
       end.compact
@@ -88,6 +93,7 @@ module Positions
     def save_to_actual(account:, attributes:)
       DB[:actual_positions].where(exchange_id: account.exchange_id, account_id: account.id).delete
       DB[:actual_positions].multi_insert(attributes)
+      Synchronization::Synchronizer.new(sync_type: 'positions', account: @account, sync_id: @sync_id).sync_succeed
     end
   end
 end
