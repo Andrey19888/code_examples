@@ -24,6 +24,8 @@ module Orders
       @exchange = account.exchange
       @pairs_ids = pairs_ids
       @sync_id = sync_id
+      @synchronizer = Synchronization::Synchronizer
+                          .new(sync_type: 'order', account: @account, sync_id: @sync_id)
     end
 
     def perform
@@ -31,9 +33,7 @@ module Orders
 
       base_dataset = build_base_dataset(params)
       if @account.deactivated_at
-        Synchronization::Synchronizer
-            .new(sync_type: 'order', account: @account, sync_id: @sync_id)
-            .sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
+        @synchronizer.sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return base_dataset.order(Sequel.desc(:timestamp))
       end
 
@@ -46,9 +46,7 @@ module Orders
         attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
         synced_orders_ids = save(attributes)
       rescue => error
-        Synchronization::Synchronizer
-            .new(sync_type: 'order', account: @account, sync_id: @sync_id)
-            .sync_failed(error.message) if @sync_id.present?
+        @synchronizer.sync_failed(error.message, error.backtrace) if @sync_id.present?
       end
 
       if status == Brokers::STATUS_OK
@@ -131,9 +129,7 @@ module Orders
             updated_at: timestamp
           )
         else
-          Synchronization::Synchronizer
-              .new(sync_type: 'order', account: @account, sync_id: @sync_id)
-              .sync_failed(result.errors) if @sync_id.present?
+          @synchronizer.sync_failed(result.errors) if @sync_id.present?
           raise InvalidOrder.new(params: params, errors: result.errors)
         end
       end.compact
@@ -153,9 +149,7 @@ module Orders
       ).returning(:id).multi_insert(
         attributes
       )
-      Synchronization::Synchronizer
-          .new(sync_type: 'order', account: @account, sync_id: @sync_id)
-          .sync_succeed if @sync_id.present?
+      @synchronizer.sync_succeed if @sync_id.present?
       ids
     end
 

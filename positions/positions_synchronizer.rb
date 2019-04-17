@@ -18,13 +18,13 @@ module Positions
       @account = account
       @exchange = account.exchange
       @sync_id = sync_id
+      @synchronizer = Synchronization::Synchronizer
+          .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
     end
 
     def perform(bad_credentials_check: false)
       if @account.deactivated_at
-        Synchronization::Synchronizer
-            .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
-            .sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
+        @synchronizer.sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return
       end
 
@@ -44,9 +44,7 @@ module Positions
         log(:error, exception.message)
         log(:error, exception.backtrace)
 
-        Synchronization::Synchronizer
-            .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
-            .sync_failed(exception.message) if @sync_id.present?
+        @synchronizer.sync_failed(exception.message, exception.backtrace) if @sync_id.present?
 
         if bad_credentials_check
           @account.increment!(:failed_credentials_checks)
@@ -69,9 +67,7 @@ module Positions
         save_to_history(attributes)
       end
 
-      Synchronization::Synchronizer
-          .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
-          .sync_succeed if @sync_id.present?
+      @synchronizer.sync_succeed if @sync_id.present?
     end
 
     def build_attributes(account:, entities:, timestamp:)
@@ -90,9 +86,7 @@ module Positions
             synchronized_at: timestamp
           )
         else
-          Synchronization::Synchronizer
-              .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
-              .sync_failed(result.errors) if @sync_id.present?
+          @synchronizer.sync_failed(result.errors) if @sync_id.present?
           raise InvalidPosition.new(params: params, errors: result.errors)
         end
       end.compact

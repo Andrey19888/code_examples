@@ -18,13 +18,13 @@ module Trades
       @exchange = account.exchange
       @pairs_ids = pairs_ids
       @sync_id = sync_id
+      @synchronizer = Synchronization::Synchronizer
+                          .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
     end
 
     def perform
       if @account.deactivated_at
-        Synchronization::Synchronizer
-            .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
-            .sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
+        @synchronizer.sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return
       end
 
@@ -41,9 +41,7 @@ module Trades
         #       2) we need to sync related order (using method info), also in background.
         _synced_trades_ids = save(attributes)
       rescue => error
-        Synchronization::Synchronizer
-            .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
-            .sync_failed(error.message) if @sync_id.present?
+        @synchronizer.sync_failed(error.message, error.backtrace) if @sync_id.present?
       end
     end
 
@@ -91,9 +89,7 @@ module Trades
             updated_at: current_timestamp
           )
         else
-          Synchronization::Synchronizer
-              .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
-              .sync_failed(result.errors) if @sync_id.present?
+          @synchronizer.sync_failed(result.errors) if @sync_id.present?
           raise InvalidTrade.new(params: params, errors: result.errors)
         end
       end.compact
@@ -111,9 +107,7 @@ module Trades
       DB[:trades]
         .insert_conflict(target: CONFLICT_KEY_COLUMNS)
         .returning(:id).multi_insert(attributes)
-      Synchronization::Synchronizer
-          .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
-          .sync_succeed if @sync_id.present?
+      @synchronizer.sync_succeed if @sync_id.present?
     end
   end
 end
