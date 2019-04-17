@@ -31,17 +31,25 @@ module Orders
 
       base_dataset = build_base_dataset(params)
       if @account.deactivated_at
-        Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_failed('Account deactivated')
+        Synchronization::Synchronizer
+            .new(sync_type: 'order', account: @account, sync_id: @sync_id)
+            .sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return base_dataset.order(Sequel.desc(:timestamp))
       end
 
-      open_orders_data = fetch_open_orders(params)
-      status = open_orders_data.fetch(:status)
+      begin
+        open_orders_data = fetch_open_orders(params)
+        status = open_orders_data.fetch(:status)
 
-      entities = open_orders_data.fetch(:orders)
-      current_timestamp = Time.current
-      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
-      synced_orders_ids = save(attributes)
+        entities = open_orders_data.fetch(:orders)
+        current_timestamp = Time.current
+        attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
+        synced_orders_ids = save(attributes)
+      rescue => error
+        Synchronization::Synchronizer
+            .new(sync_type: 'order', account: @account, sync_id: @sync_id)
+            .sync_failed(error.message) if @sync_id.present?
+      end
 
       if status == Brokers::STATUS_OK
         results_dataset = base_dataset.where do
@@ -123,7 +131,9 @@ module Orders
             updated_at: timestamp
           )
         else
-          Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_failed(result.errors)
+          Synchronization::Synchronizer
+              .new(sync_type: 'order', account: @account, sync_id: @sync_id)
+              .sync_failed(result.errors) if @sync_id.present?
           raise InvalidOrder.new(params: params, errors: result.errors)
         end
       end.compact
@@ -143,7 +153,9 @@ module Orders
       ).returning(:id).multi_insert(
         attributes
       )
-      Synchronization::Synchronizer.new(sync_type: 'order', account: @account, sync_id: @sync_id).sync_succeed
+      Synchronization::Synchronizer
+          .new(sync_type: 'order', account: @account, sync_id: @sync_id)
+          .sync_succeed if @sync_id.present?
       ids
     end
 

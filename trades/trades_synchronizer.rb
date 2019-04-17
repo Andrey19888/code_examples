@@ -22,21 +22,29 @@ module Trades
 
     def perform
       if @account.deactivated_at
-        Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_failed('Account deactivated')
+        Synchronization::Synchronizer
+            .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
+            .sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return
       end
 
       params = { exchange: @exchange, account: @account, pairs_ids: @pairs_ids }
 
-      trades_data = fetch_trades(params)
-      entities = trades_data.fetch(:trades)
+      begin
+        trades_data = fetch_trades(params)
+        entities = trades_data.fetch(:trades)
 
-      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
+        attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities))
 
-      # TODO: for recently synced trades
-      #       1) we need to check status of corresponding orders in background.
-      #       2) we need to sync related order (using method info), also in background.
-      _synced_trades_ids = save(attributes)
+        # TODO: for recently synced trades
+        #       1) we need to check status of corresponding orders in background.
+        #       2) we need to sync related order (using method info), also in background.
+        _synced_trades_ids = save(attributes)
+      rescue => error
+        Synchronization::Synchronizer
+            .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
+            .sync_failed(error.message) if @sync_id.present?
+      end
     end
 
     private
@@ -83,7 +91,9 @@ module Trades
             updated_at: current_timestamp
           )
         else
-          Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_failed(result.errors)
+          Synchronization::Synchronizer
+              .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
+              .sync_failed(result.errors) if @sync_id.present?
           raise InvalidTrade.new(params: params, errors: result.errors)
         end
       end.compact
@@ -101,7 +111,9 @@ module Trades
       DB[:trades]
         .insert_conflict(target: CONFLICT_KEY_COLUMNS)
         .returning(:id).multi_insert(attributes)
-      Synchronization::Synchronizer.new(sync_type: 'trade', account: @account, sync_id: @sync_id).sync_succeed
+      Synchronization::Synchronizer
+          .new(sync_type: 'trade', account: @account, sync_id: @sync_id)
+          .sync_succeed if @sync_id.present?
     end
   end
 end
