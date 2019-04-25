@@ -20,7 +20,7 @@ module Exchanges
     end
 
     def perform
-      pairs = @exchange.pairs.order(id: :asc).pluck(:symbol, :id)
+      pairs = @exchange.pairs.actual.order(id: :asc).pluck(:symbol, :id)
       return if pairs.blank?
 
       broker = BrokersInstances.for(@exchange.name)

@@ -20,6 +20,7 @@ module Exchanges
       attributes = build_attributes(raw_pairs)
       return if attributes.blank?
 
+      mark_outdated_pairs(attributes)
       save(attributes)
     end
 
@@ -49,6 +50,13 @@ module Exchanges
       ).returning(:id).multi_insert(
         attributes
       )
+    end
+
+    def mark_outdated_pairs(attributes)
+      actual_symbols = attributes.map{ |attribute| attribute.fetch('symbol') }
+      return if actual_symbols.empty?
+
+      DB[:pairs].where(exchange_id: @exchange.id, outdated: false).exclude(symbol: actual_symbols).update(outdated: true)
     end
   end
 end
