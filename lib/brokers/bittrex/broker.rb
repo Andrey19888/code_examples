@@ -52,7 +52,10 @@ module Brokers
     #  end
 
     # account: Hash (:key, :secret)
-    def balance(account)
+    # params: Hash
+    # * :calculate_usd_btc - optional, if absent or set true, calculating is enabled
+    def balance(account, params = {})
+      calculate_usd_btc = params.key?(:calculate_usd_btc) ? params.fetch(:calculate_usd_btc) : true
       endpoint = 'account/getbalances'
       data = AuthorizedClient.v1_1.auth(account).request(endpoint)
 
@@ -67,7 +70,7 @@ module Brokers
         [coin, entity]
       end.to_h
 
-      calculate_usd_btc_values!(balance)
+      calculate_usd_btc_values!(balance) if calculate_usd_btc
 
       {
         account: build_account(account.fetch(:key)),
