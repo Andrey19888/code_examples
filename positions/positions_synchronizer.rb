@@ -22,21 +22,21 @@ module Positions
           .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
     end
 
-    def perform(bad_credentials_check: false)
+    def perform(bad_credentials_check: false, calculate_usd_btc: true)
       if @account.deactivated_at
         @synchronizer.sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return
       end
 
-      sync(bad_credentials_check)
+      sync(bad_credentials_check, calculate_usd_btc)
     end
 
     private
 
-    def sync(bad_credentials_check)
+    def sync(bad_credentials_check, calculate_usd_btc)
       begin
         broker = BrokersInstances.for(@exchange.name)
-        positions_data = broker.balance(@account.credentials_hash).fetch(:balance)
+        positions_data = broker.balance(@account.credentials_hash, calculate_usd_btc: calculate_usd_btc).fetch(:balance)
         entities = positions_data.values
 
       rescue StandardError => exception
