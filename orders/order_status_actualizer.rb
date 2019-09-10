@@ -1,5 +1,6 @@
 module Orders
   class OrderStatusActualizer
+    include ClassLoggable
 
     def initialize(account_id:, internal_orders_ids:)
       @account_id = account_id
@@ -20,16 +21,22 @@ module Orders
           op: order.fetch(:op)
         }
 
-        info = broker.order_info(account.credentials_hash, params)
+        begin
+          info = broker.order_info(account.credentials_hash, params)
 
-        update(
-          id: order.fetch(:id),
-          attributes: {
-            status: info.detailed_status,
-            filled_qty: info.filled_qty,
-            executed_price: info.filled_price
-          }
-        )
+          update(
+            id: order.fetch(:id),
+            attributes: {
+              status: info.detailed_status,
+              filled_qty: info.filled_qty,
+              executed_price: info.filled_price
+            }
+          )
+        rescue StandardError => exception
+          log(:error, "Couldn't fetch order_info from broker")
+          log(:error, exception.message)
+          log(:error, exception.backtrace)
+        end
       end
     end
 

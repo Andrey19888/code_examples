@@ -34,11 +34,14 @@ module Positions
     private
 
     def sync(bad_credentials_check, calculate_usd_btc)
+      entities = nil
+
       begin
         broker = BrokersInstances.for(@exchange.name)
         positions_data = broker.balance(@account.credentials_hash, calculate_usd_btc: calculate_usd_btc).fetch(:balance)
         entities = positions_data.values
 
+        Accounts::FlushDeactivationState.new(account: @account).perform
       rescue StandardError => exception
         log(:error, "Couldn't fetch balance from broker")
         log(:error, exception.message)
@@ -54,8 +57,6 @@ module Positions
           end
         end
       end
-
-      Accounts::FlushDeactivationState.new(account: @account).perform
 
       return unless entities
 

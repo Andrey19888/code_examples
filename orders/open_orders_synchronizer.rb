@@ -37,23 +37,25 @@ module Orders
         return base_dataset.order(Sequel.desc(:timestamp))
       end
 
-      begin
-        open_orders_data = fetch_open_orders(params)
-        status = open_orders_data.fetch(:status)
+      open_orders_data = fetch_open_orders(params)
+      status = open_orders_data.fetch(:status)
 
-        entities = open_orders_data.fetch(:orders)
-        current_timestamp = Time.current
-        attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
-        synced_orders_ids = save(attributes)
-      rescue => error
-        @synchronizer.sync_failed(error.message, error.backtrace) if @sync_id.present?
-      end
+      entities = open_orders_data.fetch(:orders)
+      current_timestamp = Time.current
+      attributes = build_attributes(params.slice(:exchange, :account).merge(entities: entities, timestamp: current_timestamp))
+      synced_orders_ids = save(attributes)
 
       if status == Brokers::STATUS_OK
         results_dataset = base_dataset.where do
           (id =~ synced_orders_ids) | (updated_at > current_timestamp)
         end
       else
+        error = open_orders_data[:error]
+
+        if @sync_id.present? && error.is_a?(Brokers::Entities::Error)
+          @synchronizer.sync_failed(error.message, error.details.fetch(:backtrace))
+        end
+
         results_dataset = base_dataset
       end
 
