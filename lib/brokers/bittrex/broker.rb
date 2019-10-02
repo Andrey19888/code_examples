@@ -358,7 +358,7 @@ module Brokers
           open:         open,
           fees:         fees,
           precision:    precision,
-          enabled:      volume > 0,
+          enabled:      !!(volume && volume > 0),
 
           change_percent: calc_change_percent(open: open, close: close),
           actualized_at: fetched_at
