@@ -38,6 +38,11 @@ module Brokers
         body.fetch('success')
       end
 
+      def current_ip_banned?(response)
+        #TODO: Need to implement a validator
+        false
+      end
+
       def raise_body_error(response)
         body = parse_response(response)
         raise BaseBroker::Errors::ApiRequestError.new(body: body.fetch('message'))
