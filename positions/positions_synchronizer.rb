@@ -22,7 +22,7 @@ module Positions
           .new(sync_type: 'positions', account: @account, sync_id: @sync_id)
     end
 
-    def perform(bad_credentials_check: false, calculate_usd_btc: true)
+    def perform(bad_credentials_check: false, calculate_usd_btc: false)
       if @account.deactivated_at
         @synchronizer.sync_failed(I18n.t('accounts.deactivated')) if @sync_id.present?
         return
