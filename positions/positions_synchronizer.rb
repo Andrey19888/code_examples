@@ -72,11 +72,16 @@ module Positions
     end
 
     def build_attributes(account:, entities:, timestamp:)
+      pairs_hash = ExchangePairsQuery.new(exchange_id: @exchange.id).dataset.to_hash(:symbol)
+      converter = Positions::Converter.new(pairs_hash)
+
       entities.map do |entity|
         params = entity.to_h.merge(
           account_id: account.id,
           user_id: account.user_id,
-          exchange_id: account.exchange_id
+          exchange_id: account.exchange_id,
+          usd_value: converter.to_usd(qty: entity['total'], from: entity['coin']),
+          btc_value: converter.to_btc(qty: entity['total'], from: entity['coin'])
         )
 
         operation = Positions::Build.new(params)
