@@ -41,6 +41,10 @@ module Brokers
         REQUEST_TYPE
       end
 
+      def private_proxy_request_enabled?
+        true
+      end
+
       def signature(payload, secret:)
         OpenSSL::HMAC.hexdigest('sha512', secret, payload)
       end
